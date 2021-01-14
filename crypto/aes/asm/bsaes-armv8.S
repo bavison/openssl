@@ -12,6 +12,8 @@ _bsaes_encrypt8:
     ret
 .size   _bsaes_encrypt8,.-_bsaes_encrypt8
 
+// TODO: remove .globl
+.globl  _bsaes_key_convert
 .type   _bsaes_key_convert,%function
 .align  4
 _bsaes_key_convert:

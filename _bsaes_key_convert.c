@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <sys/time.h>
 
 #define STR(x) #x
 
@@ -55,6 +56,14 @@ static inline void rand_buffer(void *b, size_t s)
         *(uint8_t *)p = rand();
 }
 
+/** Find real time in microseconds */
+static uint64_t gettime(void)
+{
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return (uint64_t) now.tv_sec * 1000000 + now.tv_usec;
+}
+
 /** Initialise all registers randomly, to ensure we don't
  *  depend on their values. Generate 64 bits of randomness
  *  for core registers, even in 32-bit mode, to ensure the
@@ -96,6 +105,12 @@ static void dump_buffer(unsigned int seed, const char *name, const void *b, size
         if ((offset & 15) == 0 || offset == s)
             printf("\n");
     }
+}
+
+/** Reference function that does nothing - useful for subtracting argument marshalling overhead from benchmarks */
+void do_nothing(void);
+void do_nothing(void)
+{
 }
 
 /** Facilitate testing of functions with non-standard argument/result marshalling */
@@ -273,14 +288,36 @@ static void wrapper(void (*routine)(), void *input_key, long rounds, void *outpu
     veneer(routine, r, v);
 
     /* Extract the results we're interested in */
-    *lm_pointer = (void *) r[6];
-    *updated_output_key = (void *) r[12];
-    memcpy(pattern, &v[16*7], sizeof *pattern);
-    memcpy(last_round_key, &v[16*15], sizeof *last_round_key);
+    if (lm_pointer != NULL)
+        *lm_pointer = (void *) r[6];
+    if (updated_output_key != NULL)
+        *updated_output_key = (void *) r[12];
+    if (pattern != NULL)
+        memcpy(pattern, &v[16*7], sizeof *pattern);
+    if (last_round_key != NULL)
+        memcpy(last_round_key, &v[16*15], sizeof *last_round_key);
 }
 
 void benchmark(void)
 {
+#define ITERATIONS 10000000
+
+    uint8_t input_key[16*(MAX_ROUNDS+1)];
+    uint8_t output_key[128*MAX_ROUNDS - 96];
+
+    /* Ensure buffers are in L1 cache */
+    memset(input_key, 0, sizeof input_key);
+    memset(output_key, 0, sizeof output_key);
+
+    uint64_t t0 = gettime();
+    for (int i = ITERATIONS; i != 0; --i)
+        wrapper(do_nothing, input_key, MAX_ROUNDS, output_key, NULL, NULL, NULL, NULL);
+    uint64_t t1 = gettime();
+    for (int i = ITERATIONS; i != 0; --i)
+        wrapper(_bsaes_key_convert, input_key, MAX_ROUNDS, output_key, NULL, NULL, NULL, NULL);
+    uint64_t t2 = gettime();
+
+    printf("%" PRIu64 ", %" PRIu64 ", %" PRIu64 "\n", t1-t0, t2-t1, t2 - 2*t1 + t0);
 }
 
 void fuzz(unsigned int seed)

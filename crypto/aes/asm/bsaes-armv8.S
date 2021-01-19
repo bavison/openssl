@@ -54,6 +54,7 @@ _bsaes_key_convert:
         ld1     {v14.16b}, [x11]            // .LM0
         ld1     {v15.16b}, [x9], #16        // load round 1 key
 
+        movi    v0.16b, #0x63
         movi    v16.16b, #0x01              // bit masks
         movi    v17.16b, #0x02
         movi    v18.16b, #0x04
@@ -73,6 +74,7 @@ _bsaes_key_convert:
         tbl     v7.16b, {v15.16b}, v14.16b
         ld1     {v15.16b}, [x9], #16        // load next round key
 
+        eor     v7.16b, v7.16b, v0.16b
         cmtst   v24.16b, v7.16b, v16.16b
         cmtst   v25.16b, v7.16b, v17.16b
         cmtst   v26.16b, v7.16b, v18.16b
@@ -81,12 +83,6 @@ _bsaes_key_convert:
         cmtst   v29.16b, v7.16b, v21.16b
         cmtst   v30.16b, v7.16b, v22.16b
         cmtst   v31.16b, v7.16b, v23.16b
-        mvn     v24.16b, v24.16b            // "pnot"
-        mvn     v25.16b, v25.16b
-        mvn     v29.16b, v29.16b
-        mvn     v30.16b, v30.16b
-#ifdef __ARMEL__
-#endif
         sub     x10, x10, #1
         st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
         st1     {v28.16b-v31.16b}, [x17], #64

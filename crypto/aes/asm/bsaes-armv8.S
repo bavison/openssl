@@ -50,12 +50,12 @@ _bsaes_key_convert:
 #else
         adr     x11, .LM0_bigendian
 #endif
-        ld1     {v0.16b}, [x9], #16         // load round 0 key
-        ld1     {v14.16b}, [x11]            // .LM0
-        ld1     {v15.16b}, [x9], #16        // load round 1 key
+        ld1     {v0.16b}, [x9], #16           // load round 0 key
+        ld1     {v1.16b}, [x11]               // .LM0
+        ld1     {v15.16b}, [x9], #16          // load round 1 key
 
-        movi    v7.16b, #0x63               // compose .L63
-        movi    v16.16b, #0x01              // bit masks
+        movi    v7.16b, #0x63                 // compose .L63
+        movi    v16.16b, #0x01                // bit masks
         movi    v17.16b, #0x02
         movi    v18.16b, #0x04
         movi    v19.16b, #0x08
@@ -67,27 +67,114 @@ _bsaes_key_convert:
 #ifdef __ARMEL__
         rev32   v0.16b, v0.16b
 #endif
-        sub     x10, x10, #1
-        st1     {v0.16b}, [x17], #16        // save round 0 key
+        subs    x10, x10, #5
+        st1     {v0.16b}, [x17], #16          // save round 0 key
+        bmi     .Lkey_loop4_done
 
-.Lkey_loop:
-        tbl     v0.16b, {v15.16b}, v14.16b
-        ld1     {v15.16b}, [x9], #16        // load next round key
-
-        eor     v0.16b, v0.16b, v7.16b
-        cmtst   v24.16b, v0.16b, v16.16b
-        cmtst   v25.16b, v0.16b, v17.16b
-        cmtst   v26.16b, v0.16b, v18.16b
-        cmtst   v27.16b, v0.16b, v19.16b
-        cmtst   v28.16b, v0.16b, v20.16b
-        cmtst   v29.16b, v0.16b, v21.16b
-        cmtst   v30.16b, v0.16b, v22.16b
-        cmtst   v31.16b, v0.16b, v23.16b
-        sub     x10, x10, #1
+.Lkey_loop4:
+        tbl     v15.16b, {v15.16b}, v1.16b
+          ld1     {v12.16b-v14.16b}, [x9], #48  // load next 3 round keys
+          tbl     v12.16b, {v12.16b}, v1.16b
+        eor     v15.16b, v15.16b, v7.16b
+        cmtst   v24.16b, v15.16b, v16.16b
+        cmtst   v25.16b, v15.16b, v17.16b
+        cmtst   v26.16b, v15.16b, v18.16b
+        cmtst   v27.16b, v15.16b, v19.16b
+        cmtst   v28.16b, v15.16b, v20.16b
+        cmtst   v29.16b, v15.16b, v21.16b
+        cmtst   v30.16b, v15.16b, v22.16b
+        cmtst   v31.16b, v15.16b, v23.16b
         st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
         st1     {v28.16b-v31.16b}, [x17], #64
-        cbnz    x10, .Lkey_loop
+            tbl     v13.16b, {v13.16b}, v1.16b
+          eor     v12.16b, v12.16b, v7.16b
+          cmtst   v24.16b, v12.16b, v16.16b
+          cmtst   v25.16b, v12.16b, v17.16b
+          cmtst   v26.16b, v12.16b, v18.16b
+          cmtst   v27.16b, v12.16b, v19.16b
+          cmtst   v28.16b, v12.16b, v20.16b
+          cmtst   v29.16b, v12.16b, v21.16b
+          cmtst   v30.16b, v12.16b, v22.16b
+          cmtst   v31.16b, v12.16b, v23.16b
+          st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
+          st1     {v28.16b-v31.16b}, [x17], #64
+              tbl     v14.16b, {v14.16b}, v1.16b
+            eor     v13.16b, v13.16b, v7.16b
+            cmtst   v24.16b, v13.16b, v16.16b
+            cmtst   v25.16b, v13.16b, v17.16b
+            cmtst   v26.16b, v13.16b, v18.16b
+            cmtst   v27.16b, v13.16b, v19.16b
+            cmtst   v28.16b, v13.16b, v20.16b
+            cmtst   v29.16b, v13.16b, v21.16b
+            cmtst   v30.16b, v13.16b, v22.16b
+            cmtst   v31.16b, v13.16b, v23.16b
+            st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
+        ld1     {v15.16b}, [x9], #16          // load next round key
+            st1     {v28.16b-v31.16b}, [x17], #64
+              eor     v14.16b, v14.16b, v7.16b
+              cmtst   v24.16b, v14.16b, v16.16b
+              cmtst   v25.16b, v14.16b, v17.16b
+              cmtst   v26.16b, v14.16b, v18.16b
+              cmtst   v27.16b, v14.16b, v19.16b
+              cmtst   v28.16b, v14.16b, v20.16b
+              cmtst   v29.16b, v14.16b, v21.16b
+              cmtst   v30.16b, v14.16b, v22.16b
+              cmtst   v31.16b, v14.16b, v23.16b
+              st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
+        subs    x10, x10, #4
+              st1     {v28.16b-v31.16b}, [x17], #64
+        bpl     .Lkey_loop4
 
+.Lkey_loop4_done:
+        tst     x10, #2
+        beq     .Lkey_loop2_done
+
+        tbl     v15.16b, {v15.16b}, v1.16b
+          ld1     {v12.16b}, [x9], #16        // load next round key
+          tbl     v12.16b, {v12.16b}, v1.16b
+        eor     v15.16b, v15.16b, v7.16b
+        cmtst   v24.16b, v15.16b, v16.16b
+        cmtst   v25.16b, v15.16b, v17.16b
+        cmtst   v26.16b, v15.16b, v18.16b
+        cmtst   v27.16b, v15.16b, v19.16b
+        cmtst   v28.16b, v15.16b, v20.16b
+        cmtst   v29.16b, v15.16b, v21.16b
+        cmtst   v30.16b, v15.16b, v22.16b
+        cmtst   v31.16b, v15.16b, v23.16b
+        st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
+        ld1     {v15.16b}, [x9], #16          // load next round key
+        st1     {v28.16b-v31.16b}, [x17], #64
+          eor     v12.16b, v12.16b, v7.16b
+          cmtst   v24.16b, v12.16b, v16.16b
+          cmtst   v25.16b, v12.16b, v17.16b
+          cmtst   v26.16b, v12.16b, v18.16b
+          cmtst   v27.16b, v12.16b, v19.16b
+          cmtst   v28.16b, v12.16b, v20.16b
+          cmtst   v29.16b, v12.16b, v21.16b
+          cmtst   v30.16b, v12.16b, v22.16b
+          cmtst   v31.16b, v12.16b, v23.16b
+          st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
+          st1     {v28.16b-v31.16b}, [x17], #64
+
+.Lkey_loop2_done:
+        tst     x10, #1
+        beq     .Lkey_loop1_done
+
+        tbl     v12.16b, {v15.16b}, v1.16b
+        ld1     {v15.16b}, [x9], #16          // load next round key
+        eor     v12.16b, v12.16b, v7.16b
+        cmtst   v24.16b, v12.16b, v16.16b
+        cmtst   v25.16b, v12.16b, v17.16b
+        cmtst   v26.16b, v12.16b, v18.16b
+        cmtst   v27.16b, v12.16b, v19.16b
+        cmtst   v28.16b, v12.16b, v20.16b
+        cmtst   v29.16b, v12.16b, v21.16b
+        cmtst   v30.16b, v12.16b, v22.16b
+        cmtst   v31.16b, v12.16b, v23.16b
+        st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
+        st1     {v28.16b-v31.16b}, [x17], #64
+
+.Lkey_loop1_done:
         // don't save last round key
 #ifdef __ARMEL__
         rev32   v15.16b, v15.16b

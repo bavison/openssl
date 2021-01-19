@@ -35,20 +35,24 @@ _bsaes_encrypt8:
 // On entry:
 //   x9 -> input key (big-endian)
 //   x10 = number of rounds
-//   x17 -> output key
+//   x17 -> output key (native endianness)
 // On exit:
 //   x9, x10 corrupted
 //   x11 -> .LM0_bigendian
 //   x17 -> last quadword of output key
 //   other general-purpose registers preserved
-//   v7.8[] = 0x63
+//   v7.16b[] = 0x63
 //   v15 = last round key (converted to native endianness)
 //   other SIMD registers corrupted
 _bsaes_key_convert:
+#ifdef __ARMEL__
+        adr     x11, .LM0_littleendian
+#else
         adr     x11, .LM0_bigendian
+#endif
         ld1     {v7.16b}, [x9], #16         // load round 0 key
+        ld1     {v14.16b}, [x11]            // .LM0
         ld1     {v15.16b}, [x9], #16        // load round 1 key
-        ld1     {v14.16b}, [x11]            // .LM0_bigendian
 
         movi    v16.16b, #0x01              // bit masks
         movi    v17.16b, #0x02
@@ -61,7 +65,6 @@ _bsaes_key_convert:
 
 #ifdef __ARMEL__
         rev32   v7.16b, v7.16b
-        rev32   v15.16b, v15.16b
 #endif
         sub     x10, x10, #1
         st1     {v7.16b}, [x17], #16        // save round 0 key
@@ -83,7 +86,6 @@ _bsaes_key_convert:
         mvn     v29.16b, v29.16b
         mvn     v30.16b, v30.16b
 #ifdef __ARMEL__
-        rev32   v15.16b, v15.16b
 #endif
         sub     x10, x10, #1
         st1     {v24.16b-v27.16b}, [x17], #64 // write bit-sliced round key
@@ -92,6 +94,10 @@ _bsaes_key_convert:
 
         movi    v7.16b, #0x63               // compose .L63
         // don't save last round key
+#ifdef __ARMEL__
+        rev32   v15.16b, v15.16b
+        adr     x11, .LM0_bigendian
+#endif
         ret
 .size   _bsaes_key_convert,.-_bsaes_key_convert
 

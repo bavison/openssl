@@ -317,7 +317,8 @@ void benchmark(void)
         wrapper(_bsaes_key_convert, input_key, MAX_ROUNDS, output_key, NULL, NULL, NULL, NULL);
     uint64_t t2 = gettime();
 
-    printf("%" PRIu64 ", %" PRIu64 ", %" PRIu64 "\n", t1-t0, t2-t1, t2 - 2*t1 + t0);
+//    printf("%" PRIu64 ", %" PRIu64 ", %" PRIu64 "\n", t1-t0, t2-t1, t2 - 2*t1 + t0);
+    printf("%" PRIu64 "\n", t2 - 2*t1 + t0);
 }
 
 void fuzz(unsigned int seed)

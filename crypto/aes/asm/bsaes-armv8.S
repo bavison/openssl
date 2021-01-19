@@ -45,56 +45,54 @@ _bsaes_encrypt8:
 //   v15 = last round key (converted to native endianness)
 //   other SIMD registers corrupted
 _bsaes_key_convert:
-        adr     x11, .LM0_bigendian         // adr r6,.LM0
-        ld1     {v7.16b}, [x9], #16         // vld1.8  {q7},  [r4]!        @ load round 0 key
-        ld1     {v15.16b}, [x9], #16        // vld1.8  {q15}, [r4]!        @ load round 1 key
+        adr     x11, .LM0_bigendian
+        ld1     {v7.16b}, [x9], #16         // load round 0 key
+        ld1     {v15.16b}, [x9], #16        // load round 1 key
 
-        movi    v8.16b, #0x01               // vmov.i8 q8,  #0x01          @ bit masks
+        movi    v8.16b, #0x01               // bit masks
         movi    v9.16b, #0x02
         movi    v10.16b, #0x04
         movi    v11.16b, #0x08
         movi    v12.16b, #0x10
         movi    v13.16b, #0x20
-        ld1     {v14.16b}, [x11]            // vldmia  r6, {q14}       @ .LM0
+        ld1     {v14.16b}, [x11]            // .LM0_bigendian
 
 #ifdef __ARMEL__
-        rev32   v7.16b, v7.16b              // vrev32.8    q7,  q7
-        rev32   v15.16b, v15.16b            // vrev32.8    q15, q15
+        rev32   v7.16b, v7.16b
+        rev32   v15.16b, v15.16b
 #endif
-        sub     x10, x10, #1                // sub r5,r5,#1
-        st1     {v7.16b}, [x17], #16        // vstmia  r12!, {q7}      @ save round 0 key
-                                            // b   .Lkey_loop
-                                            //
-                                            // .align  4
-.Lkey_loop:
-        tbl     v7.16b, {v15.16b}, v14.16b // vtbl.8  d14,{q15},d28  vtbl.8  d15,{q15},d29
-        movi    v6.16b, #0x40               // vmov.i8 q6,  #0x40
-        movi    v15.16b, #0x80              // vmov.i8 q15, #0x80
+        sub     x10, x10, #1
+        st1     {v7.16b}, [x17], #16        // save round 0 key
 
-        cmtst   v0.16b, v7.16b, v8.16b      // vtst.8  q0, q7, q8
-        cmtst   v1.16b, v7.16b, v9.16b      // vtst.8  q1, q7, q9
-        cmtst   v2.16b, v7.16b, v10.16b     // vtst.8  q2, q7, q10
-        cmtst   v3.16b, v7.16b, v11.16b     // vtst.8  q3, q7, q11
-        cmtst   v4.16b, v7.16b, v12.16b     // vtst.8  q4, q7, q12
-        cmtst   v5.16b, v7.16b, v13.16b     // vtst.8  q5, q7, q13
-        cmtst   v6.16b, v7.16b, v6.16b      // vtst.8  q6, q7, q6
-        cmtst   v7.16b, v7.16b, v15.16b     // vtst.8  q7, q7, q15
-        ld1     {v15.16b}, [x9], #16        // vld1.8  {q15}, [r4]!        @ load next round key
-        mvn     v0.16b, v0.16b              // vmvn    q0, q0      @ "pnot"
-        mvn     v1.16b, v1.16b              // vmvn    q1, q1
-        mvn     v5.16b, v5.16b              // vmvn    q2, q2
-        mvn     v6.16b, v6.16b              // vmvn    q3, q3
+.Lkey_loop:
+        tbl     v7.16b, {v15.16b}, v14.16b
+        movi    v6.16b, #0x40
+        movi    v15.16b, #0x80
+
+        cmtst   v0.16b, v7.16b, v8.16b
+        cmtst   v1.16b, v7.16b, v9.16b
+        cmtst   v2.16b, v7.16b, v10.16b
+        cmtst   v3.16b, v7.16b, v11.16b
+        cmtst   v4.16b, v7.16b, v12.16b
+        cmtst   v5.16b, v7.16b, v13.16b
+        cmtst   v6.16b, v7.16b, v6.16b
+        cmtst   v7.16b, v7.16b, v15.16b
+        ld1     {v15.16b}, [x9], #16        // load next round key
+        mvn     v0.16b, v0.16b              // "pnot"
+        mvn     v1.16b, v1.16b
+        mvn     v5.16b, v5.16b
+        mvn     v6.16b, v6.16b
 #ifdef __ARMEL__
         rev32   v15.16b, v15.16b
 #endif
-        sub     x10, x10, #1                // subs    r5,r5,#1
-        st1     {v0.16b-v3.16b}, [x17], #64 // vstmia  r12!,{q0,q1,q2,q3,q4,q5,q6,q7}      @ write bit-sliced round key
+        sub     x10, x10, #1
+        st1     {v0.16b-v3.16b}, [x17], #64 // write bit-sliced round key
         st1     {v4.16b-v7.16b}, [x17], #64
-        cbnz    x10, .Lkey_loop             // bne .Lkey_loop
+        cbnz    x10, .Lkey_loop
 
-        movi    v7.16b, #0x63               // vmov.i8 q7,#0x63            @ compose .L63
+        movi    v7.16b, #0x63               // compose .L63
         // don't save last round key
-    ret                                     // bx  lr
+        ret                                 // bx  lr
 .size   _bsaes_key_convert,.-_bsaes_key_convert
 
 .globl  bsaes_cbc_encrypt

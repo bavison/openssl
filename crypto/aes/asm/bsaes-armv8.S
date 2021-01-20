@@ -8,7 +8,7 @@
 .type   _bsaes_decrypt8,%function
 .align  4
 _bsaes_decrypt8:
-    ret
+        ret
 .size   _bsaes_decrypt8,.-_bsaes_decrypt8
 
 .type   _bsaes_const,%object
@@ -24,7 +24,7 @@ _bsaes_const:
 .type   _bsaes_encrypt8,%function
 .align  4
 _bsaes_encrypt8:
-    ret
+        ret
 .size   _bsaes_encrypt8,.-_bsaes_encrypt8
 
 // TODO: remove .globl
@@ -41,7 +41,9 @@ _bsaes_encrypt8:
 //   x11 -> .LM0_bigendian
 //   x17 -> last quadword of output key
 //   other general-purpose registers preserved
+//   v2-v6 preserved
 //   v7.16b[] = 0x63
+//   v8-v14 preserved
 //   v15 = last round key (converted to native endianness)
 //   other SIMD registers corrupted
 _bsaes_key_convert:
@@ -51,7 +53,7 @@ _bsaes_key_convert:
         adr     x11, .LM0_bigendian
 #endif
         ld1     {v0.16b}, [x9], #16         // load round 0 key
-        ld1     {v14.16b}, [x11]            // .LM0
+        ld1     {v1.16b}, [x11]             // .LM0
         ld1     {v15.16b}, [x9], #16        // load round 1 key
 
         movi    v7.16b, #0x63               // compose .L63
@@ -71,7 +73,7 @@ _bsaes_key_convert:
         st1     {v0.16b}, [x17], #16        // save round 0 key
 
 .Lkey_loop:
-        tbl     v0.16b, {v15.16b}, v14.16b
+        tbl     v0.16b, {v15.16b}, v1.16b
         ld1     {v15.16b}, [x9], #16        // load next round key
 
         eor     v0.16b, v0.16b, v7.16b
@@ -100,26 +102,26 @@ _bsaes_key_convert:
 .type   bsaes_cbc_encrypt,%function
 .align  4
 bsaes_cbc_encrypt:
-    ret
+        ret
 .size   bsaes_cbc_encrypt,.-bsaes_cbc_encrypt
 
 .globl  bsaes_ctr32_encrypt_blocks
 .type   bsaes_ctr32_encrypt_blocks,%function
 .align  4
 bsaes_ctr32_encrypt_blocks:
-    ret
+        ret
 .size   bsaes_ctr32_encrypt_blocks,.-bsaes_ctr32_encrypt_blocks
 
 .globl  bsaes_xts_encrypt
 .type   bsaes_xts_encrypt,%function
 .align  4
 bsaes_xts_encrypt:
-    ret
+        ret
 .size   bsaes_xts_encrypt,.-bsaes_xts_encrypt
 
 .globl  bsaes_xts_decrypt
 .type   bsaes_xts_decrypt,%function
 .align  4
 bsaes_xts_decrypt:
-    ret
+        ret
 .size   bsaes_xts_decrypt,.-bsaes_xts_decrypt

@@ -455,17 +455,453 @@ _bsaes_const:
 .LISRM0:
 .quad   0x01040b0e0205080f, 0x0306090c00070a0d
 
+// ShiftRows constants
+// Used in _bsaes_encrypt8, which assumes contiguity
+// .LM0SR used with round 0 key
+// .LSR   used with middle round keys
+// .LSRM0 used with final round key
+.LM0SR:
+.quad   0x0a0e02060f03070b, 0x0004080c05090d01
+.LSR:
+.quad   0x0504070600030201, 0x0f0e0d0c0a09080b
+.LSRM0:
+.quad   0x0304090e00050a0f, 0x01060b0c0207080d
+
 .LM0_bigendian:
 .quad   0x02060a0e03070b0f, 0x0004080c0105090d
 .LM0_littleendian:
 .quad   0x0105090d0004080c, 0x03070b0f02060a0e
 
+// Used in bsaes_ctr32_encrypt_blocks, prior to dropping into
+// _bsaes_encrypt8_alt, for round 0 key in place of .LM0SR
+.LREVM0SR:
+.quad   0x090d01050c000408, 0x03070b0f060a0e02
+
 .align  6
 .size   _bsaes_const,.-_bsaes_const
 
+// TODO: remove .globl
+.globl  _bsaes_encrypt8
+
 .type   _bsaes_encrypt8,%function
 .align  4
+// On entry:
+//   r4/x9 -> key (previously expanded using _bsaes_key_convert)
+//   r5/x10 = number of rounds
+//   v0-v7 input data
+// On exit:
+//   r4-r6/x9-x11 corrupted
+//   other general-purpose registers preserved
+//   v0-v7 output data
+//   d8-d10,v11-v15 preserved
+//   other SIMD registers corrupted
 _bsaes_encrypt8:
+        adr     x11, .LM0SR
+        ld1     {v25.16b}, [x9], #16
+        ld1     {v24.16b}, [x11], #16
+.globl  _bsaes_encrypt8_alt
+.type   _bsaes_encrypt8_alt,%function
+_bsaes_encrypt8_alt:
+        eor     v26.16b, v0.16b, v25.16b // xor with round0 key
+        eor     v27.16b, v1.16b, v25.16b
+        tbl     v0.16b, {v26.16b}, v24.16b
+        eor     v28.16b, v2.16b, v25.16b
+        tbl     v1.16b, {v27.16b}, v24.16b
+        eor     v29.16b, v3.16b, v25.16b
+        tbl     v2.16b, {v28.16b}, v24.16b
+        eor     v30.16b, v4.16b, v25.16b
+        tbl     v3.16b, {v29.16b}, v24.16b
+        eor     v31.16b, v5.16b, v25.16b
+        tbl     v4.16b, {v30.16b}, v24.16b
+        eor     v26.16b, v6.16b, v25.16b
+        tbl     v5.16b, {v31.16b}, v24.16b
+        eor     v27.16b, v7.16b, v25.16b
+        tbl     v6.16b, {v26.16b}, v24.16b
+        tbl     v7.16b, {v27.16b}, v24.16b
+        movi    v24.16b,#0x55            // compose .LBS0
+        movi    v25.16b,#0x33            // compose .LBS1
+        ushr    v26.2d, v6.2d, #1
+        ushr    v27.2d, v4.2d, #1
+        eor     v26.16b, v26.16b, v7.16b
+        eor     v27.16b, v27.16b, v5.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v7.16b, v7.16b, v26.16b
+        shl     v26.2d, v26.2d, #1
+        eor     v5.16b, v5.16b, v27.16b
+        shl     v27.2d, v27.2d, #1
+        eor     v6.16b, v6.16b, v26.16b
+        eor     v4.16b, v4.16b, v27.16b
+        ushr    v26.2d, v2.2d, #1
+        ushr    v27.2d, v0.2d, #1
+        eor     v26.16b, v26.16b, v3.16b
+        eor     v27.16b, v27.16b, v1.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v3.16b, v3.16b, v26.16b
+        shl     v26.2d, v26.2d, #1
+        eor     v1.16b, v1.16b, v27.16b
+        shl     v27.2d, v27.2d, #1
+        eor     v2.16b, v2.16b, v26.16b
+        eor     v0.16b, v0.16b, v27.16b
+        movi    v24.16b,#0x0f            // compose .LBS2
+        ushr    v26.2d, v5.2d, #2
+        ushr    v27.2d, v4.2d, #2
+        eor     v26.16b, v26.16b, v7.16b
+        eor     v27.16b, v27.16b, v6.16b
+        and     v26.16b, v26.16b, v25.16b
+        and     v27.16b, v27.16b, v25.16b
+        eor     v7.16b, v7.16b, v26.16b
+        shl     v26.2d, v26.2d, #2
+        eor     v6.16b, v6.16b, v27.16b
+        shl     v27.2d, v27.2d, #2
+        eor     v5.16b, v5.16b, v26.16b
+        eor     v4.16b, v4.16b, v27.16b
+        ushr    v26.2d, v1.2d, #2
+        ushr    v27.2d, v0.2d, #2
+        eor     v26.16b, v26.16b, v3.16b
+        eor     v27.16b, v27.16b, v2.16b
+        and     v26.16b, v26.16b, v25.16b
+        and     v27.16b, v27.16b, v25.16b
+        eor     v3.16b, v3.16b, v26.16b
+        shl     v26.2d, v26.2d, #2
+        eor     v2.16b, v2.16b, v27.16b
+        shl     v27.2d, v27.2d, #2
+        eor     v1.16b, v1.16b, v26.16b
+        eor     v0.16b, v0.16b, v27.16b
+        ushr    v26.2d, v3.2d, #4
+        ushr    v27.2d, v2.2d, #4
+        eor     v26.16b, v26.16b, v7.16b
+        eor     v27.16b, v27.16b, v6.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v7.16b, v7.16b, v26.16b
+        shl     v26.2d, v26.2d, #4
+        eor     v6.16b, v6.16b, v27.16b
+        shl     v27.2d, v27.2d, #4
+        eor     v3.16b, v3.16b, v26.16b
+        eor     v2.16b, v2.16b, v27.16b
+        ushr    v26.2d, v1.2d, #4
+        ushr    v27.2d, v0.2d, #4
+        eor     v26.16b, v26.16b, v5.16b
+        eor     v27.16b, v27.16b, v4.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v5.16b, v5.16b, v26.16b
+        shl     v26.2d, v26.2d, #4
+        eor     v4.16b, v4.16b, v27.16b
+        shl     v27.2d, v27.2d, #4
+        eor     v1.16b, v1.16b, v26.16b
+        eor     v0.16b, v0.16b, v27.16b
+        sub     x10, x10, #1
+        b       .Lenc_sbox
+.Lenc_loop:
+        ld1     {v24.16b,v25.16b,v26.16b,v27.16b}, [x9], #64
+        eor     v24.16b, v24.16b, v0.16b
+        eor     v25.16b, v25.16b, v1.16b
+        tbl     v0.16b, {v24.16b}, v28.16b
+        ld1     {v24.16b}, [x9], #16
+        eor     v26.16b, v26.16b, v2.16b
+        tbl     v1.16b, {v25.16b}, v28.16b
+        ld1     {v25.16b}, [x9], #16
+        eor     v27.16b, v27.16b, v3.16b
+        tbl     v2.16b, {v26.16b}, v28.16b
+        ld1     {v26.16b}, [x9], #16
+        tbl     v3.16b, {v27.16b}, v28.16b
+        ld1     {v27.16b}, [x9], #16
+        eor     v24.16b, v24.16b, v4.16b
+        eor     v25.16b, v25.16b, v5.16b
+        tbl     v4.16b, {v24.16b}, v28.16b
+        eor     v26.16b, v26.16b, v6.16b
+        tbl     v5.16b, {v25.16b}, v28.16b
+        eor     v27.16b, v27.16b, v7.16b
+        tbl     v6.16b, {v26.16b}, v28.16b
+        tbl     v7.16b, {v27.16b}, v28.16b
+.Lenc_sbox:
+        eor     v2.16b, v2.16b, v1.16b
+        eor     v5.16b, v5.16b, v6.16b
+        eor     v3.16b, v3.16b, v0.16b
+        eor     v6.16b, v6.16b, v2.16b
+        eor     v5.16b, v5.16b, v0.16b
+
+        eor     v6.16b, v6.16b, v3.16b
+        eor     v3.16b, v3.16b, v7.16b
+        eor     v7.16b, v7.16b, v5.16b
+        eor     v3.16b, v3.16b, v4.16b
+        eor     v4.16b, v4.16b, v5.16b
+
+        eor     v2.16b, v2.16b, v7.16b
+        eor     v3.16b, v3.16b, v1.16b
+        eor     v1.16b, v1.16b, v5.16b
+        eor     v27.16b, v7.16b, v4.16b
+        eor     v26.16b, v1.16b, v2.16b
+        eor     v25.16b, v5.16b, v3.16b
+        eor     v29.16b, v2.16b, v4.16b
+    mov    v24.16b, v26.16b
+        eor     v28.16b, v6.16b, v0.16b
+
+        orr     v26.16b, v26.16b, v25.16b
+        eor     v31.16b, v27.16b, v24.16b
+        and     v30.16b, v27.16b, v28.16b
+        orr     v27.16b, v27.16b, v28.16b
+        eor     v28.16b, v28.16b, v25.16b
+        and     v24.16b, v24.16b, v25.16b
+        eor     v25.16b, v3.16b, v0.16b
+        and     v31.16b, v31.16b, v28.16b
+        and     v29.16b, v29.16b, v25.16b
+        eor     v25.16b, v7.16b, v1.16b
+        eor     v28.16b, v5.16b, v6.16b
+        eor     v27.16b, v27.16b, v29.16b
+        eor     v26.16b, v26.16b, v29.16b
+        and     v29.16b, v25.16b, v28.16b
+        orr     v25.16b, v25.16b, v28.16b
+        eor     v27.16b, v27.16b, v31.16b
+        eor     v24.16b, v24.16b, v29.16b
+        eor     v26.16b, v26.16b, v30.16b
+        eor     v25.16b, v25.16b, v31.16b
+        eor     v24.16b, v24.16b, v30.16b
+        and     v28.16b, v2.16b, v3.16b
+        eor     v25.16b, v25.16b, v30.16b
+        and     v29.16b, v4.16b, v0.16b
+        and     v30.16b, v1.16b, v5.16b
+        orr     v31.16b, v7.16b, v6.16b
+        eor     v27.16b, v27.16b, v28.16b
+        eor     v25.16b, v25.16b, v30.16b
+        eor     v24.16b, v24.16b, v31.16b
+        eor     v26.16b, v26.16b, v29.16b
+
+    // Inv_GF16  0,  1,  2,  3, s0, s1, s2, s3
+
+    // new smaller inversion
+
+        and     v30.16b, v27.16b, v25.16b
+    mov    v28.16b, v24.16b
+
+        eor     v29.16b, v26.16b, v30.16b
+        eor     v31.16b, v24.16b, v30.16b
+        eor     v30.16b, v24.16b, v30.16b    // v30.16b=v31.16b
+
+        bsl     v29.16b, v25.16b, v24.16b
+        bsl     v31.16b, v27.16b, v26.16b
+        eor     v27.16b, v27.16b, v26.16b
+
+        bsl     v28.16b, v29.16b, v30.16b
+        bsl     v24.16b, v30.16b, v29.16b
+
+        and     v30.16b, v28.16b, v31.16b
+        eor     v25.16b, v25.16b, v24.16b
+
+        eor     v30.16b, v30.16b, v27.16b
+        eor     v28.16b, v6.16b, v0.16b
+        eor     v24.16b, v5.16b, v3.16b
+        eor     v26.16b, v31.16b, v30.16b
+        and     v26.16b, v26.16b, v6.16b
+        eor     v6.16b, v6.16b, v5.16b
+        and     v27.16b, v5.16b, v31.16b
+        and     v6.16b, v6.16b, v30.16b
+        eor     v5.16b, v27.16b, v26.16b
+        eor     v6.16b, v6.16b, v27.16b
+        eor     v31.16b, v31.16b, v29.16b
+        eor     v30.16b, v30.16b, v25.16b
+        eor     v27.16b, v31.16b, v30.16b
+        eor     v26.16b, v29.16b, v25.16b
+        and     v27.16b, v27.16b, v28.16b
+        and     v26.16b, v26.16b, v0.16b
+        eor     v28.16b, v28.16b, v24.16b
+        eor     v0.16b, v0.16b, v3.16b
+        and     v24.16b, v24.16b, v31.16b
+        and     v3.16b, v3.16b, v29.16b
+        and     v28.16b, v28.16b, v30.16b
+        and     v0.16b, v0.16b, v25.16b
+        eor     v24.16b, v24.16b, v28.16b
+        eor     v0.16b, v0.16b, v3.16b
+        eor     v28.16b, v28.16b, v27.16b
+        eor     v3.16b, v3.16b, v26.16b
+        eor     v6.16b, v6.16b, v28.16b
+        eor     v0.16b, v0.16b, v28.16b
+        eor     v5.16b, v5.16b, v24.16b
+        eor     v3.16b, v3.16b, v24.16b
+
+        eor     v28.16b, v7.16b, v4.16b
+        eor     v24.16b, v1.16b, v2.16b
+        eor     v27.16b, v31.16b, v30.16b
+        eor     v26.16b, v29.16b, v25.16b
+        and     v27.16b, v27.16b, v28.16b
+        and     v26.16b, v26.16b, v4.16b
+        eor     v28.16b, v28.16b, v24.16b
+        eor     v4.16b, v4.16b, v2.16b
+        and     v24.16b, v24.16b, v31.16b
+        and     v2.16b, v2.16b, v29.16b
+        and     v28.16b, v28.16b, v30.16b
+        and     v4.16b, v4.16b, v25.16b
+        eor     v24.16b, v24.16b, v28.16b
+        eor     v4.16b, v4.16b, v2.16b
+        eor     v28.16b, v28.16b, v27.16b
+        eor     v2.16b, v2.16b, v26.16b
+        eor     v31.16b, v31.16b, v29.16b
+        eor     v30.16b, v30.16b, v25.16b
+        eor     v26.16b, v31.16b, v30.16b
+        and     v26.16b, v26.16b, v7.16b
+        eor     v7.16b, v7.16b, v1.16b
+        and     v27.16b, v1.16b, v31.16b
+        and     v7.16b, v7.16b, v30.16b
+        eor     v1.16b, v27.16b, v26.16b
+        eor     v7.16b, v7.16b, v27.16b
+        eor     v7.16b, v7.16b, v28.16b
+        eor     v4.16b, v4.16b, v28.16b
+        eor     v1.16b, v1.16b, v24.16b
+        eor     v2.16b, v2.16b, v24.16b
+        eor     v7.16b, v7.16b, v0.16b
+        eor     v1.16b, v1.16b, v6.16b
+        eor     v6.16b, v6.16b, v0.16b
+        eor     v4.16b, v4.16b, v7.16b
+        eor     v0.16b, v0.16b, v1.16b
+
+        eor     v1.16b, v1.16b, v5.16b
+        eor     v5.16b, v5.16b, v2.16b
+        eor     v2.16b, v2.16b, v3.16b
+        eor     v3.16b, v3.16b, v5.16b
+        eor     v4.16b, v4.16b, v5.16b
+
+        eor     v6.16b, v6.16b, v3.16b
+        subs    x10, x10, #1
+        bcc     .Lenc_done
+        ext     v24.16b, v0.16b, v0.16b, #12 // x0 <<< 32
+        ext     v25.16b, v1.16b, v1.16b, #12
+        eor     v0.16b, v0.16b, v24.16b      // x0 ^ (x0 <<< 32)
+        ext     v26.16b, v4.16b, v4.16b, #12
+        eor     v1.16b, v1.16b, v25.16b
+        ext     v27.16b, v6.16b, v6.16b, #12
+        eor     v4.16b, v4.16b, v26.16b
+        ext     v28.16b, v3.16b, v3.16b, #12
+        eor     v6.16b, v6.16b, v27.16b
+        ext     v29.16b, v7.16b, v7.16b, #12
+        eor     v3.16b, v3.16b, v28.16b
+        ext     v30.16b, v2.16b, v2.16b, #12
+        eor     v7.16b, v7.16b, v29.16b
+        ext     v31.16b, v5.16b, v5.16b, #12
+        eor     v2.16b, v2.16b, v30.16b
+
+        eor     v25.16b, v25.16b, v0.16b
+        eor     v5.16b, v5.16b, v31.16b
+        ext     v0.16b, v0.16b, v0.16b, #8      // (x0 ^ (x0 <<< 32)) <<< 64)
+        eor     v26.16b, v26.16b, v1.16b
+        eor     v24.16b, v24.16b, v5.16b
+        eor     v25.16b, v25.16b, v5.16b
+        ext     v1.16b, v1.16b, v1.16b, #8
+        eor     v29.16b, v29.16b, v3.16b
+        eor     v0.16b, v0.16b, v24.16b
+        eor     v30.16b, v30.16b, v7.16b
+        eor     v1.16b, v1.16b, v25.16b
+        ext     v24.16b, v3.16b, v3.16b, #8
+        eor     v28.16b, v28.16b, v6.16b
+        ext     v25.16b, v7.16b, v7.16b, #8
+        eor     v31.16b, v31.16b, v2.16b
+        ext     v3.16b, v6.16b, v6.16b, #8
+        eor     v27.16b, v27.16b, v4.16b
+        ext     v7.16b, v5.16b, v5.16b, #8
+        eor     v28.16b, v28.16b, v5.16b
+        ext     v6.16b, v2.16b, v2.16b, #8
+        eor     v27.16b, v27.16b, v5.16b
+        ext     v2.16b, v4.16b, v4.16b, #8
+        eor     v5.16b, v25.16b, v29.16b
+        eor     v4.16b, v24.16b, v28.16b
+        eor     v3.16b, v3.16b, v27.16b
+        eor     v7.16b, v7.16b, v31.16b
+        eor     v6.16b, v6.16b, v30.16b
+     // vmov v4.16b, v24.16b
+        eor     v2.16b, v2.16b, v26.16b
+     // vmov v5.16b, v25.16b
+        ld1     {v28.16b}, [x11]
+        bne     .Lenc_loop
+        ldr     q28, [x11, #16]!            // load from .LSRM0 on last round (x10 == 0)
+        b       .Lenc_loop
+.align  4
+.Lenc_done:
+        movi    v24.16b,#0x55            // compose .LBS0
+        movi    v25.16b,#0x33            // compose .LBS1
+        ushr    v26.2d, v2.2d, #1
+        ushr    v27.2d, v3.2d, #1
+        eor     v26.16b, v26.16b, v5.16b
+        eor     v27.16b, v27.16b, v7.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v5.16b, v5.16b, v26.16b
+        shl     v26.2d, v26.2d, #1
+        eor     v7.16b, v7.16b, v27.16b
+        shl     v27.2d, v27.2d, #1
+        eor     v2.16b, v2.16b, v26.16b
+        eor     v3.16b, v3.16b, v27.16b
+        ushr    v26.2d, v4.2d, #1
+        ushr    v27.2d, v0.2d, #1
+        eor     v26.16b, v26.16b, v6.16b
+        eor     v27.16b, v27.16b, v1.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v6.16b, v6.16b, v26.16b
+        shl     v26.2d, v26.2d, #1
+        eor     v1.16b, v1.16b, v27.16b
+        shl     v27.2d, v27.2d, #1
+        eor     v4.16b, v4.16b, v26.16b
+        eor     v0.16b, v0.16b, v27.16b
+        movi    v24.16b,#0x0f            // compose .LBS2
+        ushr    v26.2d, v7.2d, #2
+        ushr    v27.2d, v3.2d, #2
+        eor     v26.16b, v26.16b, v5.16b
+        eor     v27.16b, v27.16b, v2.16b
+        and     v26.16b, v26.16b, v25.16b
+        and     v27.16b, v27.16b, v25.16b
+        eor     v5.16b, v5.16b, v26.16b
+        shl     v26.2d, v26.2d, #2
+        eor     v2.16b, v2.16b, v27.16b
+        shl     v27.2d, v27.2d, #2
+        eor     v7.16b, v7.16b, v26.16b
+        eor     v3.16b, v3.16b, v27.16b
+        ushr    v26.2d, v1.2d, #2
+        ushr    v27.2d, v0.2d, #2
+        eor     v26.16b, v26.16b, v6.16b
+        eor     v27.16b, v27.16b, v4.16b
+        and     v26.16b, v26.16b, v25.16b
+        and     v27.16b, v27.16b, v25.16b
+        eor     v6.16b, v6.16b, v26.16b
+        shl     v26.2d, v26.2d, #2
+        eor     v4.16b, v4.16b, v27.16b
+        shl     v27.2d, v27.2d, #2
+        eor     v1.16b, v1.16b, v26.16b
+        eor     v0.16b, v0.16b, v27.16b
+        ushr    v26.2d, v6.2d, #4
+        ushr    v27.2d, v4.2d, #4
+        eor     v26.16b, v26.16b, v5.16b
+        eor     v27.16b, v27.16b, v2.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v5.16b, v5.16b, v26.16b
+        shl     v26.2d, v26.2d, #4
+        eor     v2.16b, v2.16b, v27.16b
+        shl     v27.2d, v27.2d, #4
+        eor     v6.16b, v6.16b, v26.16b
+        eor     v4.16b, v4.16b, v27.16b
+        ushr    v26.2d, v1.2d, #4
+        ushr    v27.2d, v0.2d, #4
+        eor     v26.16b, v26.16b, v7.16b
+        eor     v27.16b, v27.16b, v3.16b
+        and     v26.16b, v26.16b, v24.16b
+        and     v27.16b, v27.16b, v24.16b
+        eor     v7.16b, v7.16b, v26.16b
+        shl     v26.2d, v26.2d, #4
+        eor     v3.16b, v3.16b, v27.16b
+        shl     v27.2d, v27.2d, #4
+        eor     v1.16b, v1.16b, v26.16b
+        eor     v0.16b, v0.16b, v27.16b
+        ld1     {v24.16b}, [x9]
+        eor     v4.16b, v4.16b, v24.16b
+        eor     v6.16b, v6.16b, v24.16b
+        eor     v3.16b, v3.16b, v24.16b
+        eor     v7.16b, v7.16b, v24.16b
+        eor     v2.16b, v2.16b, v24.16b
+        eor     v5.16b, v5.16b, v24.16b
+        eor     v0.16b, v0.16b, v24.16b
+        eor     v1.16b, v1.16b, v24.16b
         ret
 .size   _bsaes_encrypt8,.-_bsaes_encrypt8
 

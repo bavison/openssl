@@ -25,10 +25,10 @@
 //   v11-v15 preserved
 //   other SIMD registers corrupted
 _bsaes_decrypt8:
-        ld1     {v8.16b}, [x9], #16
+        ldr     q8, [x9], #16
         adr     x11, .LM0ISR
         movi    v9.16b, #0x55
-        ld1     {v10.16b}, [x11], #16
+        ldr     q10, [x11], #16
         movi    v16.16b, #0x33
         movi    v17.16b, #0x0f
         sub     x10, x10, #1
@@ -124,11 +124,11 @@ _bsaes_decrypt8:
 .align  4
 .Ldec_loop:
         ld1     {v16.16b, v17.16b, v18.16b, v19.16b}, [x9], #64
-        ld1     {v8.16b, v9.16b}, [x9], #32
+        ldp     q8, q9, [x9], #32
         eor     v0.16b, v16.16b, v0.16b
-        ld1     {v10.16b}, [x9], #16
+        ldr     q10, [x9], #16
         eor     v1.16b, v17.16b, v1.16b
-        ld1     {v16.16b}, [x9], #16
+        ldr     q16, [x9], #16
         eor     v2.16b, v18.16b, v2.16b
         eor     v3.16b, v19.16b, v3.16b
         eor     v4.16b, v8.16b, v4.16b
@@ -278,7 +278,7 @@ _bsaes_decrypt8:
         bcc     .Ldec_done
         ext     v8.16b, v0.16b, v0.16b, #8
         ext     v9.16b, v1.16b, v1.16b, #8
-        ld1     {v28.16b}, [x11]            // load from .LISR in common case (x10 > 0)
+        ldr     q28, [x11]                  // load from .LISR in common case (x10 > 0)
         ext     v10.16b, v6.16b, v6.16b, #8
         ext     v16.16b, v3.16b, v3.16b, #8
         ext     v17.16b, v5.16b, v5.16b, #8
@@ -357,7 +357,7 @@ _bsaes_decrypt8:
 .Ldec_done:
         ushr    v8.2d, v0.2d, #1
         movi    v9.16b, #0x55
-        ld1     {v10.16b}, [x9]
+        ldr     q10, [x9]
         ushr    v16.2d, v2.2d, #1
         movi    v17.16b, #0x33
         ushr    v18.2d, v6.2d, #1
@@ -498,9 +498,9 @@ _bsaes_const:
 //   v11-v15 preserved
 //   other SIMD registers corrupted
 _bsaes_encrypt8:
-        ld1     {v8.16b}, [x9], #16
+        ldr     q8, [x9], #16
         adr     x11, .LM0SR
-        ld1     {v9.16b}, [x11], #16
+        ldr     q9, [x11], #16
 _bsaes_encrypt8_alt:
         eor     v0.16b, v0.16b, v8.16b
         eor     v1.16b, v1.16b, v8.16b
@@ -598,11 +598,11 @@ _bsaes_encrypt8_alt:
 .align  4
 .Lenc_loop:
         ld1     {v16.16b, v17.16b, v18.16b, v19.16b}, [x9], #64
-        ld1     {v8.16b, v9.16b}, [x9], #32
+        ldp     q8, q9, [x9], #32
         eor     v0.16b, v16.16b, v0.16b
-        ld1     {v10.16b}, [x9], #16
+        ldr     q10, [x9], #16
         eor     v1.16b, v17.16b, v1.16b
-        ld1     {v16.16b}, [x9], #16
+        ldr     q16, [x9], #16
         eor     v2.16b, v18.16b, v2.16b
         eor     v3.16b, v19.16b, v3.16b
         eor     v4.16b, v8.16b, v4.16b
@@ -751,7 +751,7 @@ _bsaes_encrypt8_alt:
         bcc     .Lenc_done
         ext     v8.16b, v0.16b, v0.16b, #12
         ext     v9.16b, v4.16b, v4.16b, #12
-        ld1     {v28.16b}, [x11]
+        ldr     q28, [x11]
         ext     v10.16b, v6.16b, v6.16b, #12
         ext     v16.16b, v1.16b, v1.16b, #12
         ext     v17.16b, v3.16b, v3.16b, #12
@@ -800,7 +800,7 @@ _bsaes_encrypt8_alt:
 .Lenc_done:
         ushr    v8.2d, v0.2d, #1
         movi    v9.16b, #0x55
-        ld1     {v10.16b}, [x9]
+        ldr     q10, [x9]
         ushr    v16.2d, v3.2d, #1
         movi    v17.16b, #0x33
         ushr    v18.2d, v4.2d, #1
@@ -910,9 +910,9 @@ _bsaes_key_convert:
 #else
         adr     x11, .LM0_bigendian
 #endif
-        ld1     {v0.16b}, [x9], #16         // load round 0 key
-        ld1     {v1.16b}, [x11]             // .LM0
-        ld1     {v8.16b}, [x9], #16         // load round 1 key
+        ldr     q0, [x9], #16               // load round 0 key
+        ldr     q1, [x11]                   // .LM0
+        ldr     q8, [x9], #16               // load round 1 key
 
         movi    v7.16b, #0x63               // compose .L63
         movi    v16.16b, #0x01              // bit masks
@@ -928,12 +928,12 @@ _bsaes_key_convert:
         rev32   v0.16b, v0.16b
 #endif
         sub     x10, x10, #1
-        st1     {v0.16b}, [x17], #16        // save round 0 key
+        str     q0, [x17], #16              // save round 0 key
 
 .align  4
 .Lkey_loop:
         tbl     v0.16b, {v8.16b}, v1.16b
-        ld1     {v8.16b}, [x9], #16         // load next round key
+        ldr     q8, [x9], #16               // load next round key
 
         eor     v0.16b, v0.16b, v7.16b
         cmtst   v24.16b, v0.16b, v16.16b
@@ -1072,21 +1072,21 @@ bsaes_ctr32_encrypt_blocks:
         ld1     {v16.16b, v17.16b, v18.16b, v19.16b}, [x0], #64 // load input
         eor     v0.16b, v0.16b, v16.16b
         eor     v1.16b, v1.16b, v17.16b
-        ld1     {v20.16b,v21.16b}, [x0], #32
+        ldp     q20, q21, [x0], #32
         eor     v4.16b, v4.16b, v18.16b
         eor     v6.16b, v6.16b, v19.16b
-        ld1     {v22.16b,v23.16b}, [x0], #32
+        ldp     q22, q23, [x0], #32
         eor     v3.16b, v3.16b, v20.16b
-        st1     {v0.16b,v1.16b}, [x1], #32  // write output
+        stp     q0, q1, [x1], #32           // write output
         eor     v7.16b, v7.16b, v21.16b
         eor     v2.16b, v2.16b, v22.16b
-        st1     {v4.16b}, [x1], #16
+        str     q4, [x1], #16
         eor     v5.16b, v5.16b, v23.16b
-        st1     {v6.16b}, [x1], #16
-        st1     {v3.16b}, [x1], #16
-        st1     {v7.16b}, [x1], #16
-        st1     {v2.16b}, [x1], #16
-        st1     {v5.16b}, [x1], #16
+        str     q6, [x1], #16
+        str     q3, [x1], #16
+        str     q7, [x1], #16
+        str     q2, [x1], #16
+        str     q5, [x1], #16
         movi    v8.4s, #1                   // compose 1<<96
         movi    v9.16b, #0
         ext     v8.16b, v9.16b, v8.16b, #4

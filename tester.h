@@ -82,6 +82,7 @@ static void randomise_registers(void)
 #define DUMP64(x) do { printf("%u: " STR(x) ": %016" PRIX64 "\n", seed, x); } while (0)
 #define DUMP_OFFSET(p, base) do { printf("%u: " STR(x) ": " STR(base) "+%zd\n", seed, (uint8_t *) p - (uint8_t *) base); } while (0)
 #define DUMP_ARRAY(b) do { dump_buffer(seed, STR(b), b, sizeof b); } while (0)
+#define DUMP_OBJECT(o) do { dump_buffer(seed, STR(o), &o, sizeof o); } while (0)
 
 static void dump_buffer(unsigned int seed, const char *name, const void *b, size_t s)
 {

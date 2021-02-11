@@ -26,11 +26,11 @@ static __attribute__((noinline)) void wrapper(void (*routine)(const unsigned cha
 
 void benchmark(void)
 {
-#define ITERATIONS 10000
+#define ITERATIONS 200000
 
     unsigned char in[1024];
     unsigned char out[1024];
-    AES_KEY key = { .rounds = 14 };
+    AES_KEY key = { .rounds = 14, .flag = 2 };
     unsigned char counter[16];
 
     /* Ensure buffers are in L1 cache */

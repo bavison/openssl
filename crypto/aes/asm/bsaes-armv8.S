@@ -984,10 +984,11 @@ bsaes_ctr32_encrypt_blocks:
         cmp     x2, #8                      // use plain AES for
         blo     .Lctr_enc_short             // small sizes
 
-        stp     fp, lr, [sp, #-48]!
+        stp     fp, lr, [sp, #-80]!
         stp     d8, d9, [sp, #16]
-        str     d10, [sp, #32]
-        sub     sp, sp, #0x10               // scratch space to carry over the ctr
+        stp     d10, d11, [sp, #32]
+        stp     d12, d13, [sp, #48]
+        stp     d14, d15, [sp, #64]
         mov     x14, sp
 
         ldr     w15, [x3, #240]             // get # of rounds
@@ -1031,24 +1032,26 @@ bsaes_ctr32_encrypt_blocks:
 
         movi    v8.4s, #1                   // compose 1<<96
         movi    v9.16b, #0
+        rev32   v15.16b, v0.16b
         rev32   v0.16b, v0.16b
-        ext     v8.16b, v9.16b, v8.16b, #4
+        ext     v11.16b, v9.16b, v8.16b, #4
         rev32   v4.16b, v4.16b
-        add     v9.4s, v8.4s, v8.4s         // compose 2<<96
+        add     v12.4s, v11.4s, v11.4s      // compose 2<<96
         str     q4, [sp]                    // save adjusted round0 key
+        add     v13.4s, v11.4s, v12.4s      // compose 3<<96
+        add     v14.4s, v12.4s, v12.4s      // compose 4<<96
         b       .Lctr_enc_loop
 
 .align  4
 .Lctr_enc_loop:
-        add     v10.4s, v8.4s, v9.4s        // compose 3<<96
-        add     v1.4s, v0.4s, v8.4s         // +1
-        add     v2.4s, v0.4s, v9.4s         // +2
-        add     v3.4s, v0.4s, v10.4s        // +3
-        add     v4.4s, v1.4s, v10.4s
-        add     v5.4s, v2.4s, v10.4s
-        add     v6.4s, v3.4s, v10.4s
-        add     v7.4s, v4.4s, v10.4s
-        add     v10.4s, v5.4s, v10.4s       // next counter
+        add     v1.4s, v15.4s, v11.4s       // +1
+        add     v2.4s, v15.4s, v12.4s       // +2
+        add     v3.4s, v15.4s, v13.4s       // +3
+        add     v4.4s, v15.4s, v14.4s       // +4
+        add     v5.4s, v1.4s, v14.4s
+        add     v6.4s, v2.4s, v14.4s
+        add     v7.4s, v3.4s, v14.4s
+        add     v15.4s, v4.4s, v14.4s       // next counter
 
         // Borrow prologue from _bsaes_encrypt8 to use the opportunity
         // to flip byte order in 32-bit counter
@@ -1061,7 +1064,6 @@ bsaes_ctr32_encrypt_blocks:
 #endif
         ldr     q9, [x13]                   // .LREVM0SR
         mov     x10, x15                    // pass rounds
-        str     q10, [x14]                  // save next counter
         sub     x11, x13, #.LREVM0SR-.LSR   // pass constants
 
         bl      _bsaes_encrypt8_alt
@@ -1087,11 +1089,7 @@ bsaes_ctr32_encrypt_blocks:
         str     q7, [x1], #16
         str     q2, [x1], #16
         str     q5, [x1], #16
-        movi    v8.4s, #1                   // compose 1<<96
-        movi    v9.16b, #0
-        ext     v8.16b, v9.16b, v8.16b, #4
-        add     v9.4s, v8.4s, v8.4s         // compose 2<<96
-        ldr     q0, [x14]                   // load counter
+        mov     v0.16b, v15.16b
 
         bne     .Lctr_enc_loop
         b       .Lctr_enc_done
@@ -1132,20 +1130,21 @@ bsaes_ctr32_encrypt_blocks:
 
 .Lctr_enc_done:
         movi    v0.16b, #0
-        movi    v1.16b, #0
 #ifndef BSAES_ASM_EXTENDED_KEY
+        movi    v1.16b, #0
 .Lctr_enc_bzero: // wipe key schedule [if any]
         stp     q0, q1, [sp], #32
         cmp     sp, x14
         bne     .Lctr_enc_bzero
 #else
-        stp     q0, q1, [sp], #32
+        str     q0, [sp], #16
 #endif
 
-        add     sp, x14, #0x10
-        ldr     d10, [sp, #32]
         ldp     d8, d9, [sp, #16]
-        ldp     fp, lr, [sp], #48
+        ldp     d10, d11, [sp, #32]
+        ldp     d12, d13, [sp, #48]
+        ldp     d14, d15, [sp, #64]
+        ldp     fp, lr, [sp], #80
         ret
 
 .Lctr_enc_short:

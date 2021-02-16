@@ -1071,15 +1071,21 @@ bsaes_ctr32_encrypt_blocks:
         subs    x2, x2, #8
         blo     .Lctr_enc_loop_done
 
-        ld1     {v16.16b, v17.16b, v18.16b, v19.16b}, [x0], #64 // load input
+        ldr     q16, [x0], #16
+        ldr     q17, [x0], #16
+        ldr     q18, [x0], #16
+        ldr     q19, [x0], #16
         eor     v0.16b, v0.16b, v16.16b
         eor     v1.16b, v1.16b, v17.16b
-        ldp     q20, q21, [x0], #32
+        ldr     q20, [x0], #16
+        ldr     q21, [x0], #16
         eor     v4.16b, v4.16b, v18.16b
         eor     v6.16b, v6.16b, v19.16b
-        ldp     q22, q23, [x0], #32
+        ldr     q22, [x0], #16
+        ldr     q23, [x0], #16
         eor     v3.16b, v3.16b, v20.16b
-        stp     q0, q1, [x1], #32           // write output
+        str     q0, [x1], #16               // write output
+        str     q1, [x1], #16
         eor     v7.16b, v7.16b, v21.16b
         eor     v2.16b, v2.16b, v22.16b
         str     q4, [x1], #16

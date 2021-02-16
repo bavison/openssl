@@ -1044,27 +1044,26 @@ bsaes_ctr32_encrypt_blocks:
 
 .align  4
 .Lctr_enc_loop:
-        add     v1.4s, v15.4s, v11.4s       // +1
-        add     v2.4s, v15.4s, v12.4s       // +2
-        add     v3.4s, v15.4s, v13.4s       // +3
-        add     v4.4s, v15.4s, v14.4s       // +4
-        add     v5.4s, v1.4s, v14.4s
-        add     v6.4s, v2.4s, v14.4s
-        add     v7.4s, v3.4s, v14.4s
-        add     v15.4s, v4.4s, v14.4s       // next counter
-
-        // Borrow prologue from _bsaes_encrypt8 to use the opportunity
+        // Intermix prologue from _bsaes_encrypt8 to use the opportunity
         // to flip byte order in 32-bit counter
 
-        ldr     q8, [sp]                    // load round0 key
+        add     v1.4s, v15.4s, v11.4s       // +1
 #ifndef BSAES_ASM_EXTENDED_KEY
         add     x9, sp, #0x10               // pass next round key
 #else
         add     x9, x3, #264
 #endif
+        add     v2.4s, v15.4s, v12.4s       // +2
         ldr     q9, [x13]                   // .LREVM0SR
+        ldr     q8, [sp]                    // load round0 key
+        add     v3.4s, v15.4s, v13.4s       // +3
         mov     x10, x15                    // pass rounds
         sub     x11, x13, #.LREVM0SR-.LSR   // pass constants
+        add     v6.4s, v2.4s, v14.4s
+        add     v4.4s, v15.4s, v14.4s       // +4
+        add     v7.4s, v3.4s, v14.4s
+        add     v15.4s, v4.4s, v14.4s       // next counter
+        add     v5.4s, v1.4s, v14.4s
 
         bl      _bsaes_encrypt8_alt
 

@@ -1,5 +1,7 @@
 #include "tester.h"
 
+//#define RANDOM_CANDIDATES
+
 #define AES_MAXNR 14
 
 struct aes_key_st {
@@ -26,6 +28,11 @@ static __attribute__((noinline)) void wrapper(void (*routine)(const unsigned cha
 
 void benchmark(void)
 {
+#ifdef RANDOM_CANDIDATES
+    extern void (*candidates[100])(const unsigned char *, unsigned char *, size_t, const AES_KEY *, const unsigned char *);
+    size_t c = atoi(getenv("CANDIDATE"));
+#endif
+
 #define ITERATIONS 200000
 
     unsigned char in[1024];
@@ -44,7 +51,11 @@ void benchmark(void)
                 in, out, 1024/16, &key, counter);
     uint64_t t1 = gettime();
     for (int i = ITERATIONS; i != 0; --i)
+#ifdef RANDOM_CANDIDATES
+        wrapper(candidates[c-1],
+#else
         wrapper(bsaes_ctr32_encrypt_blocks,
+#endif
                 in, out, 1024/16, &key, counter);
     uint64_t t2 = gettime();
 

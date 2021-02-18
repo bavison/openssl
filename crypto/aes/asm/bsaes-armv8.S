@@ -901,8 +901,8 @@ _bsaes_encrypt8_alt:
 //   other general-purpose registers preserved
 //   v2-v6 preserved
 //   v7.16b[] = 0x63
-//   v8 = last round key (converted to native endianness)
-//   v9-v15 preserved
+//   v8-v14 preserved
+//   v15 = last round key (converted to native endianness)
 //   other SIMD registers corrupted
 _bsaes_key_convert:
 #ifdef __ARMEL__
@@ -912,7 +912,7 @@ _bsaes_key_convert:
 #endif
         ldr     q0, [x9], #16               // load round 0 key
         ldr     q1, [x11]                   // .LM0
-        ldr     q8, [x9], #16               // load round 1 key
+        ldr     q15, [x9], #16              // load round 1 key
 
         movi    v7.16b, #0x63               // compose .L63
         movi    v16.16b, #0x01              // bit masks
@@ -932,8 +932,8 @@ _bsaes_key_convert:
 
 .align  4
 .Lkey_loop:
-        tbl     v0.16b, {v8.16b}, v1.16b
-        ldr     q8, [x9], #16               // load next round key
+        tbl     v0.16b, {v15.16b}, v1.16b
+        ldr     q15, [x9], #16              // load next round key
 
         eor     v0.16b, v0.16b, v7.16b
         cmtst   v24.16b, v0.16b, v16.16b
@@ -951,7 +951,7 @@ _bsaes_key_convert:
 
         // don't save last round key
 #ifdef __ARMEL__
-        rev32   v8.16b, v8.16b
+        rev32   v15.16b, v15.16b
         adr     x11, .LM0_bigendian
 #endif
         ret
@@ -960,7 +960,288 @@ _bsaes_key_convert:
 .globl  bsaes_cbc_encrypt
 .type   bsaes_cbc_encrypt,%function
 .align  4
+// On entry:
+//   x0 -> input ciphertext
+//   x1 -> output plaintext
+//   x2 = size of ciphertext and plaintext in bytes (assumed a multiple of 16)
+//   x3 -> key
+//         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
+//           [x3, #244] = some sort of flag word - if its value uf 0, then we set it to 1; if its value is 1, then we branch ahead to label 0
+//           [x3, #248...] = buffer for key schedule
+//   x4 -> 128-bit initialisation vector (or preceding 128-bit block of ciphertext if continuing after an earlier call)
+//   w5 must be == 0
+// On exit:
+//   Output plaintext filled in
+//   Initialisation vector overwritten with last quadword of ciphertext
+//   No output registers, usual AAPCS64 register preservation
 bsaes_cbc_encrypt:
+        cmp     x2, #128
+        blo     AES_cbc_encrypt
+
+        // it is up to the caller to make sure we are called with enc == 0
+
+        stp     fp, lr, [sp, #-48]!
+        stp     d8, d9, [sp, #16]
+        stp     d10, d15, [sp, #32]
+        lsr     x2, x2, #4                  // len in 16 byte blocks
+
+        ldr     w15, [x3, #240]             // get # of rounds
+#ifndef BSAES_ASM_EXTENDED_KEY
+        mov     x14, sp
+
+        // allocate the key schedule on the stack
+        add     x17, sp, #96
+        sub     x17, x17, x15, lsl #7       // 128 bytes per inner round key, less 96 bytes
+
+        // populate the key schedule
+        mov     x9, x3                      // pass key
+        mov     x10, x15                    // pass # of rounds
+        mov     sp, x17                     // sp is sp
+        bl      _bsaes_key_convert
+        ldr     q6,  [sp]
+        str     q15, [x17]                  // save last round key
+        eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
+        str     q6, [sp]
+#else
+        ldr     w17, [x3, #244]             // word after key
+        eor     w17, w17, #1
+        cmp     w17, #0
+        beq     0f
+
+        // populate the key schedule
+        str     w17, [x3, #244]
+        mov     x9, x3                      // pass key
+        mov     x10, x15                    // pass # of rounds
+        add     x17, x3, #248               // pass key schedule
+        bl      _bsaes_key_convert
+        add     x9, x3, #248
+        ldr     q6, [x9]
+        str     q15, [x17]                  // save last round key
+        eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
+        str     q6, [x9]
+#endif
+
+        ldr     q15, [x4]                   // load IV
+        b       .Lcbc_dec_loop
+
+.align  4
+.Lcbc_dec_loop:
+        subs    x2, x2, #0x8
+        bmi     .Lcbc_dec_loop_finish
+
+        ldr     q0, [x0], #16               // load input
+        ldr     q1, [x0], #16
+        ldr     q2, [x0], #16
+        ldr     q3, [x0], #16
+#ifndef BSAES_ASM_EXTENDED_KEY
+        mov     x9, sp                      // pass the key
+#else
+        add     x9, x3, #248
+#endif
+        ldr     q4, [x0], #16
+        ldr     q5, [x0], #16
+        mov     x10, x15
+        ldr     q6, [x0], #16
+        ldr     q7, [x0], #-7*16
+
+        bl      _bsaes_decrypt8
+
+        ldr     q16, [x0], #16              // reload input
+        ldr     q17, [x0], #16
+        eor     v0.16b, v0.16b, v15.16b     // ^= IV
+        ldr     q18, [x0], #16
+        ldr     q19, [x0], #16
+        eor     v1.16b, v1.16b, v16.16b
+        eor     v6.16b, v6.16b, v17.16b
+        ldr     q20, [x0], #16
+        ldr     q21, [x0], #16
+        eor     v4.16b, v4.16b, v18.16b
+        eor     v2.16b, v2.16b, v19.16b
+        ldr     q22, [x0], #16
+        ldr     q15, [x0], #16
+        eor     v7.16b, v7.16b, v20.16b
+        str     q0, [x1], #16               // write output
+        str     q1, [x1], #16
+        eor     v3.16b, v3.16b, v21.16b
+        str     q6, [x1], #16
+        eor     v5.16b, v5.16b, v22.16b
+        str     q4, [x1], #16
+        str     q2, [x1], #16
+        str     q7, [x1], #16
+        str     q3, [x1], #16
+        str     q5, [x1], #16
+
+        b       .Lcbc_dec_loop
+
+.Lcbc_dec_loop_finish:
+        adds    x2, x2, #8
+        beq     .Lcbc_dec_done
+
+        ldr     q0, [x0], #16               // load input
+        cmp     x2, #2
+        blo     .Lcbc_dec_one
+        ldr     q1, [x0], #16
+#ifndef BSAES_ASM_EXTENDED_KEY
+        mov     x9, sp                      // pass the key
+#else
+        add     x9, x3, #248
+#endif
+        mov     x10, x15
+        beq     .Lcbc_dec_two
+        ldr     q2, [x0], #16
+        cmp     x2, #4
+        blo     .Lcbc_dec_three
+        ldr     q3, [x0], #16
+        beq     .Lcbc_dec_four
+        ldr     q4, [x0], #16
+        cmp     x2, #6
+        blo     .Lcbc_dec_five
+        ldr     q5, [x0], #16
+        beq     .Lcbc_dec_six
+        ldr     q6, [x0], #-6*16
+
+        bl      _bsaes_decrypt8
+
+        ldr     q8, [x0], #16               // reload input
+        ldr     q9, [x0], #16
+        eor     v0.16b, v0.16b, v15.16b     // ^= IV
+        ldr     q10, [x0], #16
+        ldr     q11, [x0], #16
+        eor     v1.16b, v1.16b, v8.16b
+        eor     v6.16b, v6.16b, v9.16b
+        ldr     q12, [x0], #16
+        ldr     q13, [x0], #16
+        eor     v4.16b, v4.16b, v10.16b
+        eor     v2.16b, v2.16b, v11.16b
+        ldr     q15, [x0]
+        eor     v7.16b, v7.16b, v12.16b
+        str     q0, [x1], #16               // write output
+        str     q1, [x1], #16
+        eor     v3.16b, v3.16b, v13.16b
+        str     q6, [x1], #16
+        str     q4, [x1], #16
+        str     q2, [x1], #16
+        str     q7, [x1], #16
+        str     q3, [x1]
+        b       .Lcbc_dec_done
+.align  4
+.Lcbc_dec_six:
+        sub     x0, x0, #0x60
+        bl      _bsaes_decrypt8
+        ldr     q8, [x0], #16               // reload input
+        ldr     q9, [x0], #16
+        eor     v0.16b, v0.16b, v15.16b     // ^= IV
+        ldr     q10, [x0], #16
+        ldr     q11, [x0], #16
+        eor     v1.16b, v1.16b, v8.16b
+        eor     v6.16b, v6.16b, v9.16b
+        ldr     q12, [x0], #16
+        eor     v4.16b, v4.16b, v10.16b
+        eor     v2.16b, v2.16b, v11.16b
+        ldr     q15, [x0]
+        eor     v7.16b, v7.16b, v12.16b
+        str     q0, [x1], #16               // write output
+        str     q1, [x1], #16
+        str     q6, [x1], #16
+        str     q4, [x1], #16
+        str     q2, [x1], #16
+        str     q7, [x1]
+        b   .Lcbc_dec_done
+.align  4
+.Lcbc_dec_five:
+        sub     x0, x0, #0x50
+        bl      _bsaes_decrypt8
+        ldr     q8, [x0], #16               // reload input
+        ldr     q9, [x0], #16
+        eor     v0.16b, v0.16b, v15.16b     // ^= IV
+        ldr     q10, [x0], #16
+        ldr     q11, [x0], #16
+        eor     v1.16b, v1.16b, v8.16b
+        eor     v6.16b, v6.16b, v9.16b
+        ldr     q15, [x0]
+        eor     v4.16b, v4.16b, v10.16b
+        str     q0, [x1], #16               // write output
+        str     q1, [x1], #16
+        eor     v2.16b, v2.16b, v11.16b
+        str     q6, [x1], #16
+        str     q4, [x1], #16
+        str     q2, [x1]
+        b   .Lcbc_dec_done
+.align  4
+.Lcbc_dec_four:
+        sub     x0, x0, #0x40
+        bl      _bsaes_decrypt8
+        ldr     q8, [x0], #16               // reload input
+        ldr     q9, [x0], #16
+        eor     v0.16b, v0.16b, v15.16b     // ^= IV
+        ldr     q10, [x0], #16
+        eor     v1.16b, v1.16b, v8.16b
+        eor     v6.16b, v6.16b, v9.16b
+        ldr     q15, [x0]
+        eor     v4.16b, v4.16b, v10.16b
+        str     q0, [x1], #16               // write output
+        str     q1, [x1], #16
+        str     q6, [x1], #16
+        str     q4, [x1]
+        b   .Lcbc_dec_done
+.align  4
+.Lcbc_dec_three:
+        sub     x0, x0, #0x30
+        bl      _bsaes_decrypt8
+        ldr     q8, [x0], #16               // reload input
+        ldr     q9, [x0], #16
+        eor     v0.16b, v0.16b, v15.16b     // ^= IV
+        ldr     q15, [x0]
+        eor     v1.16b, v1.16b, v8.16b
+        eor     v6.16b, v6.16b, v9.16b
+        str     q0, [x1], #16               // write output
+        str     q1, [x1], #16
+        str     q6, [x1]
+        b   .Lcbc_dec_done
+.align  4
+.Lcbc_dec_two:
+        sub     x0, x0, #0x20
+        bl      _bsaes_decrypt8
+        ldr     q8, [x0], #16               // reload input
+        eor     v0.16b, v0.16b, v15.16b     // ^= IV
+        ldr     q15, [x0]                   // reload input
+        eor     v1.16b, v1.16b, v8.16b
+        str     q0, [x1], #16               // write output
+        str     q1, [x1]
+        b       .Lcbc_dec_done
+.align  4
+.Lcbc_dec_one:
+        sub     x0, x0, #0x10
+        stp     x1, x4, [sp, #-32]!
+#ifndef BSAES_ASM_EXTENDED_KEY
+        str     x14, [sp, #16]
+#endif
+        mov     v8.16b, v15.16b
+        mov     v15.16b, v0.16b
+        mov     x2, x3
+        bl      AES_decrypt
+#ifndef BSAES_ASM_EXTENDED_KEY
+        ldr     x14, [sp, #16]
+#endif
+        ldp     x1, x4, [sp], #32
+        ldr     q0, [x1]                    // load result
+        eor     v0.16b, v0.16b, v8.16b      // ^= IV
+        str     q0, [x1]                    // write output
+
+.align  4
+.Lcbc_dec_done:
+#ifndef BSAES_ASM_EXTENDED_KEY
+        movi    v0.16b, #0
+        movi    v1.16b, #0
+.Lcbc_dec_bzero:// wipe key schedule [if any]
+        stp     q0, q1, [sp], #32
+        cmp     sp, x14
+        bne     .Lcbc_dec_bzero
+#endif
+        str     q15, [x4]                   // return IV
+        ldp     d8, d9, [sp, #16]
+        ldp     d10, d15, [sp, #32]
+        ldp     fp, lr, [sp], #48
         ret
 .size   bsaes_cbc_encrypt,.-bsaes_cbc_encrypt
 
@@ -973,11 +1254,11 @@ bsaes_cbc_encrypt:
 //   x2 = number of 16-byte blocks to encrypt/decrypt (> 0)
 //   x3 -> key
 //         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = some sort of flag word - if its value is 1, then we branch ahead to label 0
+//           [x3, #244] = some sort of flag word - if its value uf 0, then we set it to 1; if its value is 1, then we branch ahead to label 0
 //           [x3, #248...] = buffer for key schedule
 //   x4 -> initial value of 128-bit counter (stored big-endian) which increments, modulo 2^32, for each block
 // On exit:
-//   Output block filled in
+//   Output text filled in
 //   No output registers, usual AAPCS64 register preservation
 bsaes_ctr32_encrypt_blocks:
 
@@ -989,10 +1270,11 @@ bsaes_ctr32_encrypt_blocks:
         stp     d10, d11, [sp, #32]
         stp     d12, d13, [sp, #48]
         stp     d14, d15, [sp, #64]
-        mov     x14, sp
 
         ldr     w15, [x3, #240]             // get # of rounds
 #ifndef BSAES_ASM_EXTENDED_KEY
+        mov     x14, sp
+
         // allocate the key schedule on the stack
         add     x17, sp, #96
         sub     x17, x17, x15, lsl #7       // 128 bytes per inner round key, less 96 bytes
@@ -1002,7 +1284,7 @@ bsaes_ctr32_encrypt_blocks:
         mov     x10, x15                    // pass # of rounds
         mov     sp, x17                     // sp is sp
         bl      _bsaes_key_convert
-        eor     v7.16b, v7.16b, v8.16b      // fix up last round key
+        eor     v7.16b, v7.16b, v15.16b     // fix up last round key
         str     q7, [x17]                   // save last round key
 
         ldr     q0, [x4]                    // load counter
@@ -1020,7 +1302,7 @@ bsaes_ctr32_encrypt_blocks:
         mov     x10, x15                    // pass # of rounds
         add     x17, x3, #248               // pass key schedule
         bl      _bsaes_key_convert
-        eor     v7.16b, v7.16b, v8.16b      // fix up last round key
+        eor     v7.16b, v7.16b, v15.16b     // fix up last round key
         str     q7, [x17]                   // save last round key
 
         add     x17, x3, #248

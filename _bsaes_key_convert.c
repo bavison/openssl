@@ -25,11 +25,7 @@ static void wrapper(void (*routine)(), void *input_key, long rounds, void *outpu
     if (pattern != NULL)
         memcpy(pattern, &v[16*7], sizeof *pattern);
     if (last_round_key != NULL)
-#ifdef __aarch64__
-        memcpy(last_round_key, &v[16*8], sizeof *last_round_key);
-#else
         memcpy(last_round_key, &v[16*15], sizeof *last_round_key);
-#endif
 }
 
 void benchmark(void)

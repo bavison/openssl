@@ -1030,17 +1030,17 @@ bsaes_cbc_encrypt:
         bmi     .Lcbc_dec_loop_finish
 
         ldr     q0, [x0], #16               // load input
-        ldr     q1, [x0], #16
-        ldr     q2, [x0], #16
-        ldr     q3, [x0], #16
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass the key
 #else
         add     x9, x3, #248
 #endif
+        ldr     q1, [x0], #16
+        mov     x10, x15
+        ldr     q2, [x0], #16
+        ldr     q3, [x0], #16
         ldr     q4, [x0], #16
         ldr     q5, [x0], #16
-        mov     x10, x15
         ldr     q6, [x0], #16
         ldr     q7, [x0], #-7*16
 
@@ -1146,7 +1146,7 @@ bsaes_cbc_encrypt:
         str     q4, [x1], #16
         str     q2, [x1], #16
         str     q7, [x1]
-        b   .Lcbc_dec_done
+        b       .Lcbc_dec_done
 .align  4
 .Lcbc_dec_five:
         sub     x0, x0, #0x50
@@ -1166,7 +1166,7 @@ bsaes_cbc_encrypt:
         str     q6, [x1], #16
         str     q4, [x1], #16
         str     q2, [x1]
-        b   .Lcbc_dec_done
+        b       .Lcbc_dec_done
 .align  4
 .Lcbc_dec_four:
         sub     x0, x0, #0x40
@@ -1183,7 +1183,7 @@ bsaes_cbc_encrypt:
         str     q1, [x1], #16
         str     q6, [x1], #16
         str     q4, [x1]
-        b   .Lcbc_dec_done
+        b       .Lcbc_dec_done
 .align  4
 .Lcbc_dec_three:
         sub     x0, x0, #0x30
@@ -1197,7 +1197,7 @@ bsaes_cbc_encrypt:
         str     q0, [x1], #16               // write output
         str     q1, [x1], #16
         str     q6, [x1]
-        b   .Lcbc_dec_done
+        b       .Lcbc_dec_done
 .align  4
 .Lcbc_dec_two:
         sub     x0, x0, #0x20

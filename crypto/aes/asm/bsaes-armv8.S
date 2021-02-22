@@ -1047,29 +1047,29 @@ bsaes_cbc_encrypt:
         bl      _bsaes_decrypt8
 
         ldr     q16, [x0], #16              // reload input
-        ldr     q17, [x0], #16
         eor     v0.16b, v0.16b, v15.16b     // ^= IV
-        ldr     q18, [x0], #16
-        ldr     q19, [x0], #16
         eor     v1.16b, v1.16b, v16.16b
-        eor     v6.16b, v6.16b, v17.16b
-        ldr     q20, [x0], #16
-        ldr     q21, [x0], #16
-        eor     v4.16b, v4.16b, v18.16b
-        eor     v2.16b, v2.16b, v19.16b
-        ldr     q22, [x0], #16
-        ldr     q15, [x0], #16
-        eor     v7.16b, v7.16b, v20.16b
         str     q0, [x1], #16               // write output
         str     q1, [x1], #16
-        eor     v3.16b, v3.16b, v21.16b
-        str     q6, [x1], #16
-        eor     v5.16b, v5.16b, v22.16b
-        str     q4, [x1], #16
+        ldr     q0, [x0], #16
+        ldr     q1, [x0], #16
+        eor     v1.16b, v4.16b, v1.16b
+        ldr     q4, [x0], #16
+        eor     v2.16b, v2.16b, v4.16b
+        eor     v0.16b, v6.16b, v0.16b
+        ldr     q4, [x0], #16
+        str     q0, [x1], #16
+        str     q1, [x1], #16
+        eor     v0.16b, v7.16b, v4.16b
+        ldr     q1, [x0], #16
         str     q2, [x1], #16
-        str     q7, [x1], #16
-        str     q3, [x1], #16
-        str     q5, [x1], #16
+        ldr     q2, [x0], #16
+        ldr     q15, [x0], #16
+        str     q0, [x1], #16
+        eor     v0.16b, v5.16b, v2.16b
+        eor     v1.16b, v3.16b, v1.16b
+        str     q1, [x1], #16
+        str     q0, [x1], #16
 
         b       .Lcbc_dec_loop
 

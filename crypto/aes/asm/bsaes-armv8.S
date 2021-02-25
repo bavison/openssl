@@ -1606,258 +1606,213 @@ bsaes_xts_decrypt:
 
 .align  4
 .Lxts_dec_loop:
-        ldr     q0, [x20], #16
-        ldr     q1, [x20], #16
-        ldr     q2, [x20], #16
-        ldr     q3, [x20], #16
-        ldr     q4, [x20], #16
-        ldr     q5, [x20], #16
-        ldr     q6, [x20], #16
-        ldr     q7, [x20], #16
-        ldr     q8, .Lxts_magic
-        ldr     q9, .Lxts_magic+16
-
-        eor     v0.16b, v0.16b, v11.16b
-        sshr    v20.2d, v11.2d, #63
-        and     v20.16b, v20.16b, v8.16b
-        ext     v20.16b, v20.16b, v20.16b, #8
-        add     v12.2d, v11.2d, v11.2d
-        eor     v12.16b, v12.16b, v20.16b   // no need to store
-
-        eor     v1.16b, v1.16b, v12.16b
-        cmtst   v21.2d, v11.2d, v9.2d
-        and     v21.16b, v21.16b, v8.16b
-        ext     v21.16b, v21.16b, v21.16b, #8
-        add     v13.2d, v12.2d, v12.2d
-        eor     v13.16b, v13.16b, v21.16b   // no need to store
-
-        eor     v2.16b, v2.16b, v13.16b
-        cmtst   v22.2d, v12.2d, v9.2d
-        and     v22.16b, v22.16b, v8.16b
-        ext     v22.16b, v22.16b, v22.16b, #8
-        add     v14.2d, v13.2d, v13.2d
-        eor     v14.16b, v14.16b, v22.16b   // no need to store
-
-        eor     v3.16b, v3.16b, v14.16b
-        cmtst   v23.2d, v13.2d, v9.2d
-        and     v23.16b, v23.16b, v8.16b
-        ext     v23.16b, v23.16b, v23.16b, #8
-        add     v15.2d, v14.2d, v14.2d
-        eor     v15.16b, v15.16b, v23.16b   // no need to store
-
-        add     x0, x19, #16
-
-        eor     v4.16b, v4.16b, v15.16b
-        cmtst   v24.2d, v14.2d, v9.2d
-        and     v24.16b, v24.16b, v8.16b
-        ext     v24.16b, v24.16b, v24.16b, #8
-        add     v16.2d, v15.2d, v15.2d
-        eor     v16.16b, v16.16b, v24.16b
-        str     q16, [x0], #16
-
-        eor     v5.16b, v5.16b, v16.16b
-        cmtst   v25.2d, v15.2d, v9.2d
-        and     v25.16b, v25.16b, v8.16b
-        ext     v25.16b, v25.16b, v25.16b, #8
-        add     v17.2d, v16.2d, v16.2d
-        eor     v17.16b, v17.16b, v25.16b
-        str     q17, [x0], #16
-
-        eor     v6.16b, v6.16b, v17.16b
-        cmtst   v26.2d, v16.2d, v9.2d
-        and     v26.16b, v26.16b, v8.16b
-        ext     v26.16b, v26.16b, v26.16b, #8
-        add     v18.2d, v17.2d, v17.2d
-        eor     v18.16b, v18.16b, v26.16b
-        str     q18, [x0], #16
-
-        eor     v7.16b, v7.16b, v18.16b
-        cmtst   v27.2d, v17.2d, v9.2d
-        and     v27.16b, v27.16b, v8.16b
-        ext     v27.16b, v27.16b, v27.16b, #8
-        add     v19.2d, v18.2d, v18.2d
-        eor     v19.16b, v19.16b, v27.16b
-        str     q19, [x0]                   // next round tweak
-
+        ldr     q7, .Lxts_magic
+        sshr    v0.2d, v11.2d, #63
+        add     v1.2d, v11.2d, v11.2d
+        ldr     q6, .Lxts_magic+16
+        add     x2, x19, #16
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
 #else
         add     x9, x23, #248               // pass key schedule
 #endif
+        ldr     q2, [x20], #16
         mov     x10, x1                     // pass rounds
+        ldr     q3, [x20], #16
         add     x0, x19, #16
+        ldr     q4, [x20], #16
+        and     v5.16b, v0.16b, v7.16b
+        ldr     q8, [x20], #16
+        cmtst   v9.2d, v11.2d, v6.2d
+        ldr     q10, [x20], #16
+        ldr     q16, [x20], #16
+        eor     v0.16b, v2.16b, v11.16b
+        ext     v2.16b, v5.16b, v5.16b, #8
+        ldr     q17, [x20], #16
+        and     v5.16b, v9.16b, v7.16b
+        ldr     q9, [x20], #16
+        eor     v12.16b, v1.16b, v2.16b
+        ext     v2.16b, v5.16b, v5.16b, #8
+        add     v5.2d, v12.2d, v12.2d
+        cmtst   v14.2d, v12.2d, v6.2d
+        eor     v1.16b, v3.16b, v12.16b
+        eor     v13.16b, v5.16b, v2.16b
+        and     v2.16b, v14.16b, v7.16b
+        ext     v3.16b, v2.16b, v2.16b, #8
+        add     v5.2d, v13.2d, v13.2d
+        cmtst   v15.2d, v13.2d, v6.2d
+        eor     v2.16b, v4.16b, v13.16b
+        eor     v14.16b, v5.16b, v3.16b
+        and     v3.16b, v15.16b, v7.16b
+        add     v4.2d, v14.2d, v14.2d
+        cmtst   v5.2d, v14.2d, v6.2d
+        ext     v15.16b, v3.16b, v3.16b, #8
+        eor     v3.16b, v8.16b, v14.16b
+        and     v5.16b, v5.16b, v7.16b
+        eor     v15.16b, v4.16b, v15.16b
+        ext     v5.16b, v5.16b, v5.16b, #8
+        add     v8.2d, v15.2d, v15.2d
+        cmtst   v18.2d, v15.2d, v6.2d
+        eor     v4.16b, v10.16b, v15.16b
+        eor     v5.16b, v8.16b, v5.16b
+        and     v8.16b, v18.16b, v7.16b
+        ext     v8.16b, v8.16b, v8.16b, #8
+        add     v10.2d, v5.2d, v5.2d
+        str     q5, [x2], #16
+        cmtst   v18.2d, v5.2d, v6.2d
+        eor     v5.16b, v16.16b, v5.16b
+        eor     v8.16b, v10.16b, v8.16b
+        and     v10.16b, v18.16b, v7.16b
+        add     v16.2d, v8.2d, v8.2d
+        cmtst   v18.2d, v8.2d, v6.2d
+        str     q8, [x2], #16
+        ext     v10.16b, v10.16b, v10.16b, #8
+        eor     v6.16b, v17.16b, v8.16b
+        and     v7.16b, v18.16b, v7.16b
+        eor     v8.16b, v16.16b, v10.16b
+        ext     v10.16b, v7.16b, v7.16b, #8
+        add     v16.2d, v8.2d, v8.2d
+        str     q8, [x2], #16
+        eor     v7.16b, v9.16b, v8.16b
+        eor     v8.16b, v16.16b, v10.16b
+        str     q8, [x2]                    // next round tweak
 
         bl      _bsaes_decrypt8
 
-        ldr     q16, [x0], #16
-        ldr     q17, [x0], #16
-        ldr     q18, [x0], #16
-        eor     v11.16b, v0.16b, v11.16b
-        eor     v12.16b, v1.16b, v12.16b
-        eor     v13.16b, v6.16b, v13.16b
-        eor     v14.16b, v4.16b, v14.16b
-        eor     v15.16b, v2.16b, v15.16b
-        eor     v16.16b, v7.16b, v16.16b
-        eor     v17.16b, v3.16b, v17.16b
-        eor     v18.16b, v5.16b, v18.16b
-        str     q11, [x21], #16
-        str     q12, [x21], #16
-        str     q13, [x21], #16
-        str     q14, [x21], #16
-        str     q15, [x21], #16
-        str     q16, [x21], #16
-        str     q17, [x21], #16
-        str     q18, [x21], #16
-        ldr     q11, [x0]                   // next round tweak
-
+        ldr     q8, [x0], #16
+        eor     v0.16b, v0.16b, v11.16b
+        eor     v1.16b, v1.16b, v12.16b
+        ldr     q9, [x0], #16
+        eor     v6.16b, v6.16b, v13.16b
+        eor     v4.16b, v4.16b, v14.16b
+        ldr     q10, [x0], #16
+        eor     v2.16b, v2.16b, v15.16b
         subs    x22, x22, #0x80
+        str     q0, [x21], #16
+        ldr     q11, [x0]                   // next round tweak
+        str     q1, [x21], #16
+        eor     v0.16b, v7.16b, v8.16b
+        eor     v1.16b, v3.16b, v9.16b
+        str     q6, [x21], #16
+        eor     v3.16b, v5.16b, v10.16b
+        str     q4, [x21], #16
+        str     q2, [x21], #16
+        str     q0, [x21], #16
+        str     q1, [x21], #16
+        str     q3, [x21], #16
         bpl     .Lxts_dec_loop
 
 .Lxts_dec_short:
         adds    x22, x22, #0x70
         bmi     .Lxts_dec_done
 
-        ldr     q0, [x20], #16
         ldr     q8, .Lxts_magic
+        sshr    v1.2d, v11.2d, #63
+        add     v2.2d, v11.2d, v11.2d
         ldr     q9, .Lxts_magic+16
-
-        sshr    v20.2d, v11.2d, #63
-        and     v20.16b, v20.16b, v8.16b
-        ext     v20.16b, v20.16b, v20.16b, #8
-        add     v12.2d, v11.2d, v11.2d
-        eor     v12.16b, v12.16b, v20.16b
-
-        cmtst   v21.2d, v11.2d, v9.2d
-        and     v21.16b, v21.16b, v8.16b
-        ext     v21.16b, v21.16b, v21.16b, #8
-        add     v13.2d, v12.2d, v12.2d
-        eor     v13.16b, v13.16b, v21.16b
-
-        cmtst   v22.2d, v12.2d, v9.2d
-        and     v22.16b, v22.16b, v8.16b
-
         subs    x22, x22, #0x10
+        ldr     q0, [x20], #16
+        and     v1.16b, v1.16b, v8.16b
+        cmtst   v3.2d, v11.2d, v9.2d
+        ext     v1.16b, v1.16b, v1.16b, #8
+        and     v3.16b, v3.16b, v8.16b
+        eor     v12.16b, v2.16b, v1.16b
+        ext     v1.16b, v3.16b, v3.16b, #8
+        add     v2.2d, v12.2d, v12.2d
+        cmtst   v3.2d, v12.2d, v9.2d
+        eor     v13.16b, v2.16b, v1.16b
+        and     v22.16b, v3.16b, v8.16b
         bmi     .Lxts_dec_1
 
+        ext     v2.16b, v22.16b, v22.16b, #8
+        add     v3.2d, v13.2d, v13.2d
         ldr     q1, [x20], #16
-
-        ext     v22.16b, v22.16b, v22.16b, #8
-        add     v14.2d, v13.2d, v13.2d
-        eor     v14.16b, v14.16b, v22.16b
-
-        cmtst   v23.2d, v13.2d, v9.2d
-        and     v23.16b, v23.16b, v8.16b
-
+        cmtst   v4.2d, v13.2d, v9.2d
         subs    x22, x22, #0x10
+        eor     v14.16b, v3.16b, v2.16b
+        and     v23.16b, v4.16b, v8.16b
         bmi     .Lxts_dec_2
 
+        ext     v3.16b, v23.16b, v23.16b, #8
+        add     v4.2d, v14.2d, v14.2d
         ldr     q2, [x20], #16
-
+        cmtst   v5.2d, v14.2d, v9.2d
         eor     v0.16b, v0.16b, v11.16b
-
-        ext     v23.16b, v23.16b, v23.16b, #8
-        add     v15.2d, v14.2d, v14.2d
-        eor     v15.16b, v15.16b, v23.16b
-
-        cmtst   v24.2d, v14.2d, v9.2d
-        and     v24.16b, v24.16b, v8.16b
-
         subs    x22, x22, #0x10
+        eor     v15.16b, v4.16b, v3.16b
+        and     v24.16b, v5.16b, v8.16b
         bmi     .Lxts_dec_3
 
+        ext     v4.16b, v24.16b, v24.16b, #8
+        add     v5.2d, v15.2d, v15.2d
         ldr     q3, [x20], #16
-
+        cmtst   v6.2d, v15.2d, v9.2d
         eor     v1.16b, v1.16b, v12.16b
-
-        ext     v24.16b, v24.16b, v24.16b, #8
-        add     v16.2d, v15.2d, v15.2d
-        eor     v16.16b, v16.16b, v24.16b
-
-        cmtst   v25.2d, v15.2d, v9.2d
-        and     v25.16b, v25.16b, v8.16b
-
         subs    x22, x22, #0x10
+        eor     v16.16b, v5.16b, v4.16b
+        and     v25.16b, v6.16b, v8.16b
         bmi     .Lxts_dec_4
 
-        ldr     q4, [x20], #16
-
-        eor     v2.16b, v2.16b, v13.16b
-
+        ext     v5.16b, v25.16b, v25.16b, #8
+        add     v6.2d, v16.2d, v16.2d
         add     x0, x19, #16
-
+        cmtst   v7.2d, v16.2d, v9.2d
+        ldr     q4, [x20], #16
+        eor     v2.16b, v2.16b, v13.16b
         str     q16, [x0], #16
-
-        ext     v25.16b, v25.16b, v25.16b, #8
-        add     v17.2d, v16.2d, v16.2d
-        eor     v17.16b, v17.16b, v25.16b
-
-        cmtst   v26.2d, v16.2d, v9.2d
-        and     v26.16b, v26.16b, v8.16b
-
         subs    x22, x22, #0x10
+        eor     v17.16b, v6.16b, v5.16b
+        and     v26.16b, v7.16b, v8.16b
         bmi     .Lxts_dec_5
 
-        ldr     q5, [x20], #16
-
-        eor     v3.16b, v3.16b, v14.16b
-
-        str     q17, [x0], #16
-
-        ext     v26.16b, v26.16b, v26.16b, #8
+        ext     v7.16b, v26.16b, v26.16b, #8
         add     v18.2d, v17.2d, v17.2d
-        eor     v18.16b, v18.16b, v26.16b
-
-        cmtst   v27.2d, v17.2d, v9.2d
-        and     v27.16b, v27.16b, v8.16b
-
+        ldr     q5, [x20], #16
+        eor     v3.16b, v3.16b, v14.16b
+        str     q17, [x0], #16
         subs    x22, x22, #0x10
+        eor     v18.16b, v18.16b, v7.16b
         bmi     .Lxts_dec_6
 
         ldr     q6, [x20], #16
-
         eor     v4.16b, v4.16b, v15.16b
-
         eor     v5.16b, v5.16b, v16.16b
-
-        eor     v6.16b, v6.16b, v17.16b
         str     q18, [x0]                   // next round tweak
-
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
 #else
         add     x9, x23, #248               // pass key schedule
 #endif
-        mov     x10, x1                     // pass rounds
+        mov     x10, x1
         add     x0, x19, #16
-
         sub     x22, x22, #0x10
+        eor     v6.16b, v6.16b, v17.16b
 
         bl      _bsaes_decrypt8
 
         ldr     q16, [x0], #16
+        eor     v0.16b, v0.16b, v11.16b
+        eor     v1.16b, v1.16b, v12.16b
         ldr     q17, [x0], #16
-        eor     v11.16b, v0.16b, v11.16b
-        eor     v12.16b, v1.16b, v12.16b
-        eor     v13.16b, v6.16b, v13.16b
-        eor     v14.16b, v4.16b, v14.16b
-        eor     v15.16b, v2.16b, v15.16b
-        eor     v16.16b, v7.16b, v16.16b
-        eor     v17.16b, v3.16b, v17.16b
-        str     q11, [x21], #16
-        str     q12, [x21], #16
-        str     q13, [x21], #16
-        str     q14, [x21], #16
-        str     q15, [x21], #16
-        str     q16, [x21], #16
-        str     q17, [x21], #16
+        eor     v6.16b, v6.16b, v13.16b
+        eor     v4.16b, v4.16b, v14.16b
+        eor     v2.16b, v2.16b, v15.16b
         ldr     q11, [x0]                   // next round tweak
-
+        str     q0, [x21], #16
+        str     q1, [x21], #16
+        eor     v0.16b, v7.16b, v16.16b
+        eor     v1.16b, v3.16b, v17.16b
+        str     q6, [x21], #16
+        str     q4, [x21], #16
+        str     q2, [x21], #16
+        str     q0, [x21], #16
+        str     q1, [x21], #16
         b       .Lxts_dec_done
+
 .align  4
 .Lxts_dec_6:
         eor     v4.16b, v4.16b, v15.16b
         eor     v5.16b, v5.16b, v16.16b
-
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
 #else
@@ -1869,26 +1824,25 @@ bsaes_xts_decrypt:
         bl      _bsaes_decrypt8
 
         ldr     q16, [x0], #16
-        eor     v11.16b, v0.16b, v11.16b
-        eor     v12.16b, v1.16b, v12.16b
-        eor     v13.16b, v6.16b, v13.16b
-        eor     v14.16b, v4.16b, v14.16b
-        eor     v15.16b, v2.16b, v15.16b
-        eor     v16.16b, v7.16b, v16.16b
-        str     q11, [x21], #16
-        str     q12, [x21], #16
-        str     q13, [x21], #16
-        str     q14, [x21], #16
-        str     q15, [x21], #16
-        str     q16, [x21], #16
+        eor     v0.16b, v0.16b, v11.16b
+        eor     v1.16b, v1.16b, v12.16b
+        eor     v6.16b, v6.16b, v13.16b
+        eor     v4.16b, v4.16b, v14.16b
         ldr     q11, [x0]                   // next round tweak
-
+        eor     v2.16b, v2.16b, v15.16b
+        str     q0, [x21], #16
+        str     q1, [x21], #16
+        eor     v0.16b, v7.16b, v16.16b
+        str     q6, [x21], #16
+        str     q4, [x21], #16
+        str     q2, [x21], #16
+        str     q0, [x21], #16
         b       .Lxts_dec_done
+
 .align  4
 .Lxts_dec_5:
         eor     v3.16b, v3.16b, v14.16b
         eor     v4.16b, v4.16b, v15.16b
-
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
 #else
@@ -1899,24 +1853,23 @@ bsaes_xts_decrypt:
 
         bl      _bsaes_decrypt8
 
-        eor     v11.16b, v0.16b, v11.16b
-        eor     v12.16b, v1.16b, v12.16b
-        eor     v13.16b, v6.16b, v13.16b
-        eor     v14.16b, v4.16b, v14.16b
-        eor     v15.16b, v2.16b, v15.16b
-        str     q11, [x21], #16
-        str     q12, [x21], #16
-        str     q13, [x21], #16
-        str     q14, [x21], #16
-        str     q15, [x21], #16
+        eor     v0.16b, v0.16b, v11.16b
+        eor     v1.16b, v1.16b, v12.16b
         ldr     q11, [x0]                   // next round tweak
-
+        eor     v6.16b, v6.16b, v13.16b
+        eor     v4.16b, v4.16b, v14.16b
+        eor     v2.16b, v2.16b, v15.16b
+        str     q0, [x21], #16
+        str     q1, [x21], #16
+        str     q6, [x21], #16
+        str     q4, [x21], #16
+        str     q2, [x21], #16
         b       .Lxts_dec_done
+
 .align  4
 .Lxts_dec_4:
         eor     v2.16b, v2.16b, v13.16b
         eor     v3.16b, v3.16b, v14.16b
-
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
 #else
@@ -1927,22 +1880,21 @@ bsaes_xts_decrypt:
 
         bl      _bsaes_decrypt8
 
-        eor     v11.16b, v0.16b, v11.16b
-        eor     v12.16b, v1.16b, v12.16b
-        eor     v13.16b, v6.16b, v13.16b
-        eor     v14.16b, v4.16b, v14.16b
-        str     q11, [x21], #16
-        str     q12, [x21], #16
-        str     q13, [x21], #16
-        str     q14, [x21], #16
+        eor     v0.16b, v0.16b, v11.16b
+        eor     v1.16b, v1.16b, v12.16b
+        eor     v6.16b, v6.16b, v13.16b
+        eor     v4.16b, v4.16b, v14.16b
         mov     v11.16b, v15.16b            // next round tweak
-
+        str     q0, [x21], #16
+        str     q1, [x21], #16
+        str     q6, [x21], #16
+        str     q4, [x21], #16
         b       .Lxts_dec_done
+
 .align  4
 .Lxts_dec_3:
         eor     v1.16b, v1.16b, v12.16b
         eor     v2.16b, v2.16b, v13.16b
-
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
 #else
@@ -1953,20 +1905,19 @@ bsaes_xts_decrypt:
 
         bl      _bsaes_decrypt8
 
-        eor     v11.16b, v0.16b, v11.16b
-        eor     v12.16b, v1.16b, v12.16b
-        eor     v13.16b, v6.16b, v13.16b
-        str     q11, [x21], #16
-        str     q12, [x21], #16
-        str     q13, [x21], #16
+        eor     v0.16b, v0.16b, v11.16b
+        eor     v1.16b, v1.16b, v12.16b
+        eor     v6.16b, v6.16b, v13.16b
         mov     v11.16b, v14.16b            // next round tweak
-
+        str     q0, [x21], #16
+        str     q1, [x21], #16
+        str     q6, [x21], #16
         b       .Lxts_dec_done
+
 .align  4
 .Lxts_dec_2:
         eor     v0.16b, v0.16b, v11.16b
         eor     v1.16b, v1.16b, v12.16b
-
 #ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
 #else
@@ -1977,32 +1928,30 @@ bsaes_xts_decrypt:
 
         bl      _bsaes_decrypt8
 
-        eor     v11.16b, v0.16b, v11.16b
-        eor     v12.16b, v1.16b, v12.16b
-        str     q11, [x21], #16
-        str     q12, [x21], #16
+        eor     v0.16b, v0.16b, v11.16b
+        eor     v1.16b, v1.16b, v12.16b
         mov     v11.16b, v13.16b            // next round tweak
-
+        str     q0, [x21], #16
+        str     q1, [x21], #16
         b       .Lxts_dec_done
+
 .align  4
 .Lxts_dec_1:
         eor     v0.16b, v0.16b, v11.16b
-
-        str     q0, [sp, #-16]!
-        mov     x0, sp
-        mov     x1, sp
+        sub     x0, sp, #16
+        sub     x1, sp, #16
         mov     x2, x23
         mov     v13.d[0], v11.d[1]          // just in case AES_decrypt corrupts top half of callee-saved SIMD registers
         mov     v14.d[0], v12.d[1]
+        str     q0, [sp, #-16]!
 
         bl      AES_decrypt
 
-        trn1    v11.2d, v11.2d, v13.2d
         ldr     q0, [sp], #16
-        eor     v0.16b, v0.16b, v11.16b
-        str     q0, [x21], #16
-
+        trn1    v13.2d, v11.2d, v13.2d
         trn1    v11.2d, v12.2d, v14.2d      // next round tweak
+        eor     v0.16b, v0.16b, v13.16b
+        str     q0, [x21], #16
 
 .Lxts_dec_done:
 #ifndef XTS_CHAIN_TWEAK

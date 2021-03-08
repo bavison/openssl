@@ -966,7 +966,7 @@ _bsaes_key_convert:
 //   x2 = size of ciphertext and plaintext in bytes (assumed a multiple of 16)
 //   x3 -> key
 //         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = some sort of flag word - if its value uf 0, then we set it to 1; if its value is 1, then we branch ahead to label 0
+//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
 //           [x3, #248...] = buffer for key schedule
 //   x4 -> 128-bit initialisation vector (or preceding 128-bit block of ciphertext if continuing after an earlier call)
 //   w5 must be == 0
@@ -1019,6 +1019,7 @@ bsaes_cbc_encrypt:
         str     q15, [x17]                  // save last round key
         eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
         str     q6, [x9]
+0:
 #endif
 
         ldr     q15, [x4]                   // load IV
@@ -1254,7 +1255,7 @@ bsaes_cbc_encrypt:
 //   x2 = number of 16-byte blocks to encrypt/decrypt (> 0)
 //   x3 -> key
 //         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = some sort of flag word - if its value uf 0, then we set it to 1; if its value is 1, then we branch ahead to label 0
+//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
 //           [x3, #248...] = buffer for key schedule
 //   x4 -> initial value of 128-bit counter (stored big-endian) which increments, modulo 2^32, for each block
 // On exit:
@@ -1305,7 +1306,7 @@ bsaes_ctr32_encrypt_blocks:
         eor     v7.16b, v7.16b, v15.16b     // fix up last round key
         str     q7, [x17]                   // save last round key
 
-        add     x17, x3, #248
+0:      add     x17, x3, #248
         ldr     q0, [x4]                    // load counter
         adr     x13, .LREVM0SR
         ldr     q4, [x17]                   // load round0 key
@@ -1492,7 +1493,7 @@ bsaes_ctr32_encrypt_blocks:
 //   x2 -> length of text in bytes (must be at least 16)
 //   x3 -> key1 (used to encrypt the XORed plaintext blocks)
 //         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = some sort of flag word - if its value uf 0, then we set it to 1; if its value is 1, then we branch ahead to label 0
+//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
 //           [x3, #248...] = buffer for key schedule
 // ifdef XTS_CHAIN_TWEAK
 //   x4 -> initial tweak (XOR value), 16 bytes
@@ -1574,6 +1575,7 @@ bsaes_xts_encrypt:
         bl      _bsaes_key_convert
         eor     v15.16b, v15.16b, v7.16b    // fix up round 0 key (by XORing with 0x63)
         str     q15, [x17]                  // save last round key
+0:
 #endif
 
         subs    x22, x22, #0x80
@@ -2010,7 +2012,7 @@ bsaes_xts_encrypt:
 //   x2 -> length of text in bytes (must be at least 16)
 //   x3 -> key1 (used to decrypt the XORed ciphertext blocks)
 //         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = some sort of flag word - if its value uf 0, then we set it to 1; if its value is 1, then we branch ahead to label 0
+//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
 //           [x3, #248...] = buffer for key schedule
 // ifdef XTS_CHAIN_TWEAK
 //   x4 -> initial tweak (XOR value), 16 bytes
@@ -2097,6 +2099,7 @@ bsaes_xts_decrypt:
         str     q15, [x17]                  // save last round key
         eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
         str     q6, [x9]
+0:
 #endif
 
 #ifndef XTS_CHAIN_TWEAK
@@ -2548,6 +2551,3 @@ bsaes_xts_decrypt:
         ldp     fp, lr, [sp], #192
         ret
 .size   bsaes_xts_decrypt,.-bsaes_xts_decrypt
-
-// TODO remove this. Not sure what the kernel would do?
-0: brk #0

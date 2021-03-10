@@ -1,6 +1,6 @@
 #include "tester.h"
 
-#define XTS_CHAIN_TWEAK // used in Linux kernel builds
+//#define XTS_CHAIN_TWEAK // used in Linux kernel builds
 //#define RANDOM_CANDIDATES
 
 #define AES_MAXNR 14

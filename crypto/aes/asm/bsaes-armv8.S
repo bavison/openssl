@@ -1,16 +1,30 @@
-#ifndef __KERNEL__
-# include "crypto/arm_arch.h"
-#else
-// TODO: remove next line
-# include "crypto/arm_arch.h"
-# define BSAES_ASM_EXTENDED_KEY
-# define XTS_CHAIN_TWEAK
-#endif
+// Copyright 2021 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the OpenSSL license (the "License").  You may not use
+// this file except in compliance with the License.  You can obtain a copy
+// in the file LICENSE in the source distribution or at
+// https://www.openssl.org/source/license.html
+//
+// ====================================================================
+// Written by Ben Avison <bavison@riscosopen.org> for the OpenSSL
+// project. Rights for redistribution and usage in source and binary
+// forms are granted according to the OpenSSL license.
+// ====================================================================
+//
+// This implementation is a translation of bsaes-armv7 for AArch64.
+// No attempt has been made to carry across the build switches for
+// kernel targets, since the Linux kernel crypto support has moved on
+// from when it was based on OpenSSL.
+
+// A lot of hand-scheduling has been performed. Consequently, this code
+// doesn't factor out neatly into macros in the same way that the
+// AArch32 version did, and there is little to be gained by wrapping it
+// up in Perl, and it is presented as pure assembly.
+
+
+#include "crypto/arm_arch.h"
 
 .text
-
-// TODO: remove .globl
-.globl  _bsaes_decrypt8
 
 .type   _bsaes_decrypt8,%function
 .align  4
@@ -482,9 +496,6 @@ _bsaes_const:
 .align  6
 .size   _bsaes_const,.-_bsaes_const
 
-// TODO: remove .globl
-.globl  _bsaes_encrypt8
-
 .type   _bsaes_encrypt8,%function
 .align  4
 // On entry:
@@ -885,9 +896,6 @@ _bsaes_encrypt8_alt:
         ret
 .size   _bsaes_encrypt8,.-_bsaes_encrypt8
 
-// TODO: remove .globl
-.globl  _bsaes_key_convert
-
 .type   _bsaes_key_convert,%function
 .align  4
 // On entry:
@@ -965,9 +973,6 @@ _bsaes_key_convert:
 //   x1 -> output plaintext
 //   x2 = size of ciphertext and plaintext in bytes (assumed a multiple of 16)
 //   x3 -> key
-//         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
-//           [x3, #248...] = buffer for key schedule
 //   x4 -> 128-bit initialisation vector (or preceding 128-bit block of ciphertext if continuing after an earlier call)
 //   w5 must be == 0
 // On exit:
@@ -986,7 +991,6 @@ bsaes_cbc_encrypt:
         lsr     x2, x2, #4                  // len in 16 byte blocks
 
         ldr     w15, [x3, #240]             // get # of rounds
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x14, sp
 
         // allocate the key schedule on the stack
@@ -1002,25 +1006,6 @@ bsaes_cbc_encrypt:
         str     q15, [x17]                  // save last round key
         eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
         str     q6, [sp]
-#else
-        ldr     w17, [x3, #244]             // word after key
-        eor     w17, w17, #1
-        cmp     w17, #0
-        beq     0f
-
-        // populate the key schedule
-        str     w17, [x3, #244]
-        mov     x9, x3                      // pass key
-        mov     x10, x15                    // pass # of rounds
-        add     x17, x3, #248               // pass key schedule
-        bl      _bsaes_key_convert
-        add     x9, x3, #248
-        ldr     q6, [x9]
-        str     q15, [x17]                  // save last round key
-        eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
-        str     q6, [x9]
-0:
-#endif
 
         ldr     q15, [x4]                   // load IV
         b       .Lcbc_dec_loop
@@ -1031,11 +1016,7 @@ bsaes_cbc_encrypt:
         bmi     .Lcbc_dec_loop_finish
 
         ldr     q0, [x0], #16               // load input
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass the key
-#else
-        add     x9, x3, #248
-#endif
         ldr     q1, [x0], #16
         mov     x10, x15
         ldr     q2, [x0], #16
@@ -1082,11 +1063,7 @@ bsaes_cbc_encrypt:
         cmp     x2, #2
         blo     .Lcbc_dec_one
         ldr     q1, [x0], #16
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass the key
-#else
-        add     x9, x3, #248
-#endif
         mov     x10, x15
         beq     .Lcbc_dec_two
         ldr     q2, [x0], #16
@@ -1214,16 +1191,12 @@ bsaes_cbc_encrypt:
 .Lcbc_dec_one:
         sub     x0, x0, #0x10
         stp     x1, x4, [sp, #-32]!
-#ifndef BSAES_ASM_EXTENDED_KEY
         str     x14, [sp, #16]
-#endif
         mov     v8.16b, v15.16b
         mov     v15.16b, v0.16b
         mov     x2, x3
         bl      AES_decrypt
-#ifndef BSAES_ASM_EXTENDED_KEY
         ldr     x14, [sp, #16]
-#endif
         ldp     x1, x4, [sp], #32
         ldr     q0, [x1]                    // load result
         eor     v0.16b, v0.16b, v8.16b      // ^= IV
@@ -1231,14 +1204,12 @@ bsaes_cbc_encrypt:
 
 .align  4
 .Lcbc_dec_done:
-#ifndef BSAES_ASM_EXTENDED_KEY
         movi    v0.16b, #0
         movi    v1.16b, #0
 .Lcbc_dec_bzero:// wipe key schedule [if any]
         stp     q0, q1, [sp], #32
         cmp     sp, x14
         bne     .Lcbc_dec_bzero
-#endif
         str     q15, [x4]                   // return IV
         ldp     d8, d9, [sp, #16]
         ldp     d10, d15, [sp, #32]
@@ -1254,9 +1225,6 @@ bsaes_cbc_encrypt:
 //   x1 -> output text (whole 16-byte blocks)
 //   x2 = number of 16-byte blocks to encrypt/decrypt (> 0)
 //   x3 -> key
-//         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
-//           [x3, #248...] = buffer for key schedule
 //   x4 -> initial value of 128-bit counter (stored big-endian) which increments, modulo 2^32, for each block
 // On exit:
 //   Output text filled in
@@ -1273,7 +1241,6 @@ bsaes_ctr32_encrypt_blocks:
         stp     d14, d15, [sp, #64]
 
         ldr     w15, [x3, #240]             // get # of rounds
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x14, sp
 
         // allocate the key schedule on the stack
@@ -1291,27 +1258,6 @@ bsaes_ctr32_encrypt_blocks:
         ldr     q0, [x4]                    // load counter
         add     x13, x11, #.LREVM0SR-.LM0_bigendian
         ldr     q4, [sp]                    // load round0 key
-#else
-        ldr     w17, [x3, #244]             // word after key
-        eor     w17, w17, #1
-        cmp     w17, #0
-        beq     0f
-
-        // populate the key schedule
-        str     w17, [x3, #244]
-        mov     x9, x3                      // pass key
-        mov     x10, x15                    // pass # of rounds
-        add     x17, x3, #248               // pass key schedule
-        bl      _bsaes_key_convert
-        eor     v7.16b, v7.16b, v15.16b     // fix up last round key
-        str     q7, [x17]                   // save last round key
-
-0:      add     x17, x3, #248
-        ldr     q0, [x4]                    // load counter
-        adr     x13, .LREVM0SR
-        ldr     q4, [x17]                   // load round0 key
-        sub     sp, sp, #0x10               // place for adjusted round0 key
-#endif
 
         movi    v8.4s, #1                   // compose 1<<96
         movi    v9.16b, #0
@@ -1331,11 +1277,7 @@ bsaes_ctr32_encrypt_blocks:
         // to flip byte order in 32-bit counter
 
         add     v1.4s, v15.4s, v11.4s       // +1
-#ifndef BSAES_ASM_EXTENDED_KEY
         add     x9, sp, #0x10               // pass next round key
-#else
-        add     x9, x3, #264
-#endif
         add     v2.4s, v15.4s, v12.4s       // +2
         ldr     q9, [x13]                   // .LREVM0SR
         ldr     q8, [sp]                    // load round0 key
@@ -1418,15 +1360,11 @@ bsaes_ctr32_encrypt_blocks:
 
 .Lctr_enc_done:
         movi    v0.16b, #0
-#ifndef BSAES_ASM_EXTENDED_KEY
         movi    v1.16b, #0
 .Lctr_enc_bzero: // wipe key schedule [if any]
         stp     q0, q1, [sp], #32
         cmp     sp, x14
         bne     .Lctr_enc_bzero
-#else
-        str     q0, [sp], #16
-#endif
 
         ldp     d8, d9, [sp, #16]
         ldp     d10, d11, [sp, #32]
@@ -1492,38 +1430,24 @@ bsaes_ctr32_encrypt_blocks:
 //   x1 -> output ciphertext
 //   x2 -> length of text in bytes (must be at least 16)
 //   x3 -> key1 (used to encrypt the XORed plaintext blocks)
-//         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
-//           [x3, #248...] = buffer for key schedule
-// ifdef XTS_CHAIN_TWEAK
-//   x4 -> initial tweak (XOR value), 16 bytes
-// else
 //   x4 -> key2 (used to encrypt the initial vector to yield the initial tweak)
 //   x5 -> 16-byte initial vector (typically, sector number)
-// endif
 // On exit:
 //   Output ciphertext filled in
-//   ifdef XTS_CHAIN_TWEAK then tweak buffer updated
 //   No output registers, usual AAPCS64 register preservation
 bsaes_xts_encrypt:
         // Stack layout:
         // sp ->
-        // ifndef BSAES_ASM_EXTENDED_KEY
         //        nrounds*128-96 bytes: key schedule
-        // endif
         // x19 ->
         //        16 bytes: frame record
         //        4*16 bytes: tweak storage across _bsaes_encrypt8
-        //        6*8 bytes: storage for 5/6 callee-saved general-purpose registers
+        //        6*8 bytes: storage for 5 callee-saved general-purpose registers
         //        8*8 bytes: storage for 8 callee-saved SIMD registers
         stp     fp, lr, [sp, #-192]!
         stp     x19, x20, [sp, #80]
         stp     x21, x22, [sp, #96]
-#ifdef XTS_CHAIN_TWEAK
-        stp     x23, x24, [sp, #112]
-#else
         str     x23, [sp, #112]
-#endif
         stp     d8, d9, [sp, #128]
         stp     d10, d11, [sp, #144]
         stp     d12, d13, [sp, #160]
@@ -1535,10 +1459,6 @@ bsaes_xts_encrypt:
         mov     x22, x2
         mov     x23, x3
 
-#ifdef XTS_CHAIN_TWEAK
-        mov     x24, x4
-        ldr     q11, [x4]                   // initial tweak
-#else
         // generate initial tweak
         sub     sp, sp, #16
         mov     x0, x5                      // iv[]
@@ -1546,10 +1466,8 @@ bsaes_xts_encrypt:
         mov     x2, x4                      // key2
         bl      AES_encrypt
         ldr     q11, [sp], #16
-#endif
 
         ldr     w1, [x23, #240]             // get # of rounds
-#ifndef BSAES_ASM_EXTENDED_KEY
         // allocate the key schedule on the stack
         add     x17, sp, #96
         sub     x17, x17, x1, lsl #7        // 128 bytes per inner round key, less 96 bytes
@@ -1561,22 +1479,6 @@ bsaes_xts_encrypt:
         bl      _bsaes_key_convert
         eor     v15.16b, v15.16b, v7.16b    // fix up last round key
         str     q15, [x17]                  // save last round key
-#else
-        ldr     w17, [x3, #244]             // word after key
-        eor     w17, w17, #1
-        cmp     w17, #0
-        beq     0f
-
-        // populate the key schedule
-        str     w17, [x3, #244]
-        mov     x9, x23                     // pass key
-        mov     x10, x1                     // pass # of rounds
-        add     x17, x3, #248               // pass key schedule
-        bl      _bsaes_key_convert
-        eor     v15.16b, v15.16b, v7.16b    // fix up round 0 key (by XORing with 0x63)
-        str     q15, [x17]                  // save last round key
-0:
-#endif
 
         subs    x22, x22, #0x80
         blo     .Lxts_enc_short
@@ -1589,11 +1491,7 @@ bsaes_xts_encrypt:
         add     x2, x19, #16
         ldr     q0, [x20], #16
         sshr    v1.2d, v11.2d, #63
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         ldr     q6, .Lxts_magic+16
         add     v2.2d, v11.2d, v11.2d
         cmtst   v3.2d, v11.2d, v6.2d
@@ -1756,11 +1654,7 @@ bsaes_xts_encrypt:
         eor     v4.16b, v4.16b, v15.16b
         eor     v5.16b, v5.16b, v16.16b
         str     q18, [x0]                   // next round tweak
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1
         add     x0, x19, #16
         sub     x22, x22, #0x10
@@ -1791,11 +1685,7 @@ bsaes_xts_encrypt:
 .Lxts_enc_6:
         eor     v4.16b, v4.16b, v15.16b
         eor     v5.16b, v5.16b, v16.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -1821,11 +1711,7 @@ bsaes_xts_encrypt:
 .Lxts_enc_5:
         eor     v3.16b, v3.16b, v14.16b
         eor     v4.16b, v4.16b, v15.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -1848,11 +1734,7 @@ bsaes_xts_encrypt:
 .Lxts_enc_4:
         eor     v2.16b, v2.16b, v13.16b
         eor     v3.16b, v3.16b, v14.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -1873,11 +1755,7 @@ bsaes_xts_encrypt:
 .Lxts_enc_3:
         eor     v1.16b, v1.16b, v12.16b
         eor     v2.16b, v2.16b, v13.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -1896,11 +1774,7 @@ bsaes_xts_encrypt:
 .Lxts_enc_2:
         eor     v0.16b, v0.16b, v11.16b
         eor     v1.16b, v1.16b, v12.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -1932,7 +1806,6 @@ bsaes_xts_encrypt:
         str     q0, [x21], #16
 
 .Lxts_enc_done:
-#ifndef XTS_CHAIN_TWEAK
         adds    x22, x22, #0x10
         beq     .Lxts_enc_ret
 
@@ -1968,27 +1841,17 @@ bsaes_xts_encrypt:
         str     q0, [x6]
 
 .Lxts_enc_ret:
-#endif
 
-#ifndef BSAES_ASM_EXTENDED_KEY
         movi    v0.16b, #0
         movi    v1.16b, #0
 .Lxts_enc_bzero: // wipe key schedule
         stp     q0, q1, [sp], #32
         cmp     sp, x19
         bne     .Lxts_enc_bzero
-#endif
-#ifdef XTS_CHAIN_TWEAK
-        str     q11, [x24]
-#endif
 
         ldp     x19, x20, [sp, #80]
         ldp     x21, x22, [sp, #96]
-#ifdef XTS_CHAIN_TWEAK
-        ldp     x23, x24, [sp, #112]
-#else
         ldr     x23, [sp, #112]
-#endif
         ldp     d8, d9, [sp, #128]
         ldp     d10, d11, [sp, #144]
         ldp     d12, d13, [sp, #160]
@@ -2011,38 +1874,24 @@ bsaes_xts_encrypt:
 //   x1 -> output plaintext
 //   x2 -> length of text in bytes (must be at least 16)
 //   x3 -> key1 (used to decrypt the XORed ciphertext blocks)
-//         ifdef BSAES_ASM_EXTENDED_KEY then after the key are:
-//           [x3, #244] = read-write flag: 1 => buffer at x3+248 already contains extended key
-//           [x3, #248...] = buffer for key schedule
-// ifdef XTS_CHAIN_TWEAK
-//   x4 -> initial tweak (XOR value), 16 bytes
-// else
 //   x4 -> key2 (used to encrypt the initial vector to yield the initial tweak)
 //   x5 -> 16-byte initial vector (typically, sector number)
-// endif
 // On exit:
 //   Output plaintext filled in
-//   ifdef XTS_CHAIN_TWEAK then tweak buffer updated
 //   No output registers, usual AAPCS64 register preservation
 bsaes_xts_decrypt:
         // Stack layout:
         // sp ->
-        // ifndef BSAES_ASM_EXTENDED_KEY
         //        nrounds*128-96 bytes: key schedule
-        // endif
         // x19 ->
         //        16 bytes: frame record
         //        4*16 bytes: tweak storage across _bsaes_decrypt8
-        //        6*8 bytes: storage for 5/6 callee-saved general-purpose registers
+        //        6*8 bytes: storage for 5 callee-saved general-purpose registers
         //        8*8 bytes: storage for 8 callee-saved SIMD registers
         stp     fp, lr, [sp, #-192]!
         stp     x19, x20, [sp, #80]
         stp     x21, x22, [sp, #96]
-#ifdef XTS_CHAIN_TWEAK
-        stp     x23, x24, [sp, #112]
-#else
         str     x23, [sp, #112]
-#endif
         stp     d8, d9, [sp, #128]
         stp     d10, d11, [sp, #144]
         stp     d12, d13, [sp, #160]
@@ -2054,10 +1903,6 @@ bsaes_xts_decrypt:
         mov     x22, x2
         mov     x23, x3
 
-#ifdef XTS_CHAIN_TWEAK
-        mov     x24, x4
-        ldr     q11, [x4]                   // initial tweak
-#else
         // generate initial tweak
         sub     sp, sp, #16
         mov     x0, x5                      // iv[]
@@ -2065,10 +1910,8 @@ bsaes_xts_decrypt:
         mov     x2, x4                      // key2
         bl      AES_encrypt
         ldr     q11, [sp], #16
-#endif
 
         ldr     w1, [x23, #240]             // get # of rounds
-#ifndef BSAES_ASM_EXTENDED_KEY
         // allocate the key schedule on the stack
         add     x17, sp, #96
         sub     x17, x17, x1, lsl #7        // 128 bytes per inner round key, less 96 bytes
@@ -2082,31 +1925,10 @@ bsaes_xts_decrypt:
         str     q15, [x17]                  // save last round key
         eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
         str     q6, [sp]
-#else
-        ldr     w17, [x3, #244]             // word after key
-        eor     w17, w17, #1
-        cmp     w17, #0
-        beq     0f
 
-        // populate the key schedule
-        str     w17, [x3, #244]
-        mov     x9, x23                     // pass key
-        mov     x10, x1                     // pass # of rounds
-        add     x17, x3, #248               // pass key schedule
-        bl      _bsaes_key_convert
-        add     x9, x3, #248
-        ldr     q6, [x9]
-        str     q15, [x17]                  // save last round key
-        eor     v6.16b, v6.16b, v7.16b      // fix up round 0 key (by XORing with 0x63)
-        str     q6, [x9]
-0:
-#endif
-
-#ifndef XTS_CHAIN_TWEAK
         sub     x30, x22, #0x10
         tst     x22, #0xf                   // if not multiple of 16
         csel    x22, x30, x22, ne           // subtract another 16 bytes
-#endif
         subs    x22, x22, #0x80
 
         blo     .Lxts_dec_short
@@ -2119,11 +1941,7 @@ bsaes_xts_decrypt:
         add     x2, x19, #16
         ldr     q0, [x20], #16
         sshr    v1.2d, v11.2d, #63
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         ldr     q6, .Lxts_magic+16
         add     v2.2d, v11.2d, v11.2d
         cmtst   v3.2d, v11.2d, v6.2d
@@ -2286,11 +2104,7 @@ bsaes_xts_decrypt:
         eor     v4.16b, v4.16b, v15.16b
         eor     v5.16b, v5.16b, v16.16b
         str     q18, [x0]                   // next round tweak
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1
         add     x0, x19, #16
         sub     x22, x22, #0x10
@@ -2321,11 +2135,7 @@ bsaes_xts_decrypt:
 .Lxts_dec_6:
         eor     v4.16b, v4.16b, v15.16b
         eor     v5.16b, v5.16b, v16.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -2351,11 +2161,7 @@ bsaes_xts_decrypt:
 .Lxts_dec_5:
         eor     v3.16b, v3.16b, v14.16b
         eor     v4.16b, v4.16b, v15.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -2378,11 +2184,7 @@ bsaes_xts_decrypt:
 .Lxts_dec_4:
         eor     v2.16b, v2.16b, v13.16b
         eor     v3.16b, v3.16b, v14.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -2403,11 +2205,7 @@ bsaes_xts_decrypt:
 .Lxts_dec_3:
         eor     v1.16b, v1.16b, v12.16b
         eor     v2.16b, v2.16b, v13.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -2426,11 +2224,7 @@ bsaes_xts_decrypt:
 .Lxts_dec_2:
         eor     v0.16b, v0.16b, v11.16b
         eor     v1.16b, v1.16b, v12.16b
-#ifndef BSAES_ASM_EXTENDED_KEY
         mov     x9, sp                      // pass key schedule
-#else
-        add     x9, x23, #248               // pass key schedule
-#endif
         mov     x10, x1                     // pass rounds
         add     x0, x19, #16
 
@@ -2462,7 +2256,6 @@ bsaes_xts_decrypt:
         str     q0, [x21], #16
 
 .Lxts_dec_done:
-#ifndef XTS_CHAIN_TWEAK
         adds    x22, x22, #0x10
         beq     .Lxts_dec_ret
 
@@ -2523,27 +2316,17 @@ bsaes_xts_decrypt:
         str     q0, [x6]
 
 .Lxts_dec_ret:
-#endif
 
-#ifndef BSAES_ASM_EXTENDED_KEY
         movi    v0.16b, #0
         movi    v1.16b, #0
 .Lxts_dec_bzero: // wipe key schedule
         stp     q0, q1, [sp], #32
         cmp     sp, x19
         bne     .Lxts_dec_bzero
-#endif
-#ifdef XTS_CHAIN_TWEAK
-        str     q11, [x24]
-#endif
 
         ldp     x19, x20, [sp, #80]
         ldp     x21, x22, [sp, #96]
-#ifdef XTS_CHAIN_TWEAK
-        ldp     x23, x24, [sp, #112]
-#else
         ldr     x23, [sp, #112]
-#endif
         ldp     d8, d9, [sp, #128]
         ldp     d10, d11, [sp, #144]
         ldp     d12, d13, [sp, #160]
